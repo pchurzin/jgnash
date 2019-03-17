@@ -880,6 +880,7 @@ public class OfxV2Parser implements OfxTags {
 
         final ImportTransaction tran = new ImportTransaction();
 
+        BigDecimal curRate = BigDecimal.ONE;
         parse:
         while (reader.hasNext()) {
             final int event = reader.next();
@@ -924,8 +925,16 @@ public class OfxV2Parser implements OfxTags {
                             tran.setPayeeId(reader.getElementText().replaceAll(EXTRA_SPACE_REGEX, " ").trim());
                             break;
                         case CURRENCY:
+                            consumeElement(reader); //we don't need currency symbol and exchange rate info
+                            break;
                         case ORIGCURRENCY:
-                            tran.setCurrency(reader.getElementText());
+                            break; // the transaction amount will be in foreign currency, so we need exchange rate info
+                        case CURSYM:
+                            consumeElement(reader);
+                            break;
+                        case CURRATE:
+                            // we encounter this while parsing ORIGCURRENCY element
+                            curRate = parseAmount(reader.getElementText());
                             break;
                         case SUBACCTFUND: // transfer into / out off an investment account
                             tran.setSubAccount(reader.getElementText());
@@ -951,6 +960,8 @@ public class OfxV2Parser implements OfxTags {
                 default:
             }
         }
+
+        tran.setAmount(tran.getAmount().multiply(curRate));
 
         bank.addTransaction(tran);
 

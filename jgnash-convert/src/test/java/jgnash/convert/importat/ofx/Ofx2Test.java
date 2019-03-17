@@ -646,4 +646,47 @@ class Ofx2Test {
         }
     }
 
+    @Test
+    void testOrigCurrency() throws Exception {
+        final String testFile = "/origcurrency_cursym_currate.ofx";
+
+        final Path path = Paths.get(Ofx2Test.class.getResource(testFile).toURI());
+
+        assertTrue(Files.exists(path));
+
+        assertTrue(FileMagic.isOfxV2(path));
+
+        try {
+
+            try (final InputStream stream = Ofx2Test.class.getResourceAsStream(testFile)) {
+                parser.parse(stream);
+
+                OfxBank ofxBank = parser.getBank();
+
+                assertNotNull(ofxBank);
+
+                assertEquals("RUS", parser.getLanguage());
+                assertEquals(0, parser.getStatusCode());
+                assertEquals("INFO", parser.getStatusSeverity());
+
+                assertNull(ofxBank.statusMessage);
+
+                assertEquals(2, ofxBank.getTransactions().size());
+
+                assertFalse(ofxBank.isInvestmentAccount());
+
+                assertEquals(new BigDecimal("2000.0000"), parser.getBank().getTransactions().get(0).getAmount());
+
+                assertEquals(new BigDecimal("-703.50000"), parser.getBank().getTransactions().get(1).getAmount());
+
+            } catch (final IOException e) {
+                logSevere(Ofx2Test.class, e);
+                fail();
+            }
+        } catch (final Exception e) {
+            logSevere(Ofx2Test.class, e);
+            fail();
+        }
+    }
+
 }
