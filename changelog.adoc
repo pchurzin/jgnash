@@ -26,18 +26,29 @@
 * Spreadsheet export for all tabular reports
 * Write and replace for bxds and xml files to protect against corruption if a crash occurs during a save.
 
-== TODO
-* Column sizing
-* Save As behavior
-
-== Known JDK Related Bugs
-* Java 11 formatting of accounting values is not consistent with older versions and wrong in some cases
-** https://bugs.openjdk.java.net/browse/JDK-8218770
-** https://bugs.openjdk.java.net/browse/JDK-8215181
+== Release 3.0.2
+* 03/31/2019 Added a commandline option to bypass the bootloader.
+* 03/31/2019 The wrong version information ws being reported on the console when requested.
+* 03/30/2019 Automatic column widths will now update correctly if numeric or date formats change.
+* 03/30/2019 Use a full commodity format for the Total column in the investment register.
+* 03/30/2019 Changes to preferred date and numeric formats will now trigger an immediate update of the active register.
+* 03/29/2019 Improved detection and handling of invalid decimal input.
+* 03/29/2019 Removed direct print support from the report dialog.  The user can use save the PDF and print it.
+* 03/28/2019 Reimplemented the page format dialog for reports to address OSX issues and to allow custom paper sizes.
+* 03/28/2019 Prevent an NPE from a race condition between a background security price update and an application shutdown.
+* 03/27/2019 Prevent an NPE from occurring when closing after a report has been shown and GC is slow.
+* 03/26/2019 Improved the update behavior when performing a Save As and when packing databases.
+* 03/26/2019 The pack database action was not listing .mv.db files.
+* 03/24/2019 Cleanup of language files to make translation and updates easier.
 
 == Release 3.0.1
+* 03/22/2019 Corrected a very rare concurrency exception when retrieving investment accounts using a relational database.
+* 03/23/2019 Updated to the latest Hibernate dependency.
+* 03/22/2019 Updated Russian translation. _[pchurzin]_
+* 03/22/2019 Reporting would fail if Java encountered a font file it did not like.
+* 03/21/2019 Fixed wrong currency symbol in Debit/Credit Columns if using a full format. (GitHub Issue #75)
 * 03/19/2019 Do a better job of reporting bootloader network errors.
-* 03/19/2019 Disabled Ctl-C shortcut for closing a file.
+* 03/19/2019 Disabled Ctl-C shortcut for closing a file (Conflicts with a paste command).
 * 03/18/2019 Prevent an exception from occurring if a default directory does not exist.
 * 03/16/2019 Changed the download link in the Windows launcher to use a correct JDK.
 

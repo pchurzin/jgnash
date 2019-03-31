@@ -26,7 +26,10 @@ import javafx.application.Platform;
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.IntegerProperty;
 import javafx.beans.property.ObjectProperty;
+import javafx.beans.property.ReadOnlyBooleanProperty;
+import javafx.beans.property.ReadOnlyDoubleProperty;
 import javafx.beans.property.SimpleBooleanProperty;
+import javafx.beans.property.SimpleDoubleProperty;
 import javafx.beans.property.SimpleIntegerProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.value.ChangeListener;
@@ -71,10 +74,10 @@ public class DecimalTextField extends TextFieldEx {
      */
     private volatile boolean forceFraction = false;
 
-    //private static final ScriptEngine jsEngine;
-
     // the property value may be null
     private final ObjectProperty<BigDecimal> decimal = new SimpleObjectProperty<>();
+
+    private final SimpleDoubleProperty doubleValue = new SimpleDoubleProperty();
 
     /**
      * Controls the maximum number of displayed decimal places.
@@ -91,15 +94,19 @@ public class DecimalTextField extends TextFieldEx {
      */
     private final BooleanProperty emptyWhenZero = new SimpleBooleanProperty(true);
 
+    private final BooleanProperty isValid = new SimpleBooleanProperty(false);
+
     /**
      * Reference is needed to prevent premature garbage collection.
      */
     @SuppressWarnings("FieldCanBeLocal")
     private final ChangeListener<Boolean> focusChangeListener;
 
+    @SuppressWarnings("FieldCanBeLocal")
+    private final ChangeListener<String> validValueListener;
+
     static {
         FLOAT = getAllowedChars();
-        //jsEngine = new ScriptEngineManager().getEngineByName("nashorn");
     }
 
     public DecimalTextField() {
@@ -118,7 +125,19 @@ public class DecimalTextField extends TextFieldEx {
             }
         };
 
+        // Listen to any text changes to determine if it
+        validValueListener = (observable, oldValue, newValue) -> {
+            try {
+                Double.parseDouble(newValue);
+                isValid.setValue(true);
+            } catch (Exception e) {
+                isValid.setValue(false);
+            }
+        };
+
         focusedProperty().addListener(new WeakChangeListener<>(focusChangeListener));
+
+        textProperty().addListener(new WeakChangeListener<>(validValueListener));
 
         addEventFilter(KeyEvent.KEY_PRESSED, event -> {
             //Raise a flag the Decimal key has been pressed so it can be
@@ -167,6 +186,24 @@ public class DecimalTextField extends TextFieldEx {
         return decimal;
     }
 
+    /**
+     * {@code ReadOnlyDoubleProperty} representation of the {@code BigDecimal} property to make bindings and error checking easier
+     *
+     * @return ReadOnlyDoubleProperty
+     */
+    public ReadOnlyDoubleProperty doubleProperty() {
+        return ReadOnlyDoubleProperty.readOnlyDoubleProperty(doubleValue);
+    }
+
+    /**
+     * Property indicating if the field contains a valid numeric value
+     *
+     * @return ReadOnlyBooleanProperty
+     */
+    public ReadOnlyBooleanProperty validDecimalProperty() {
+        return ReadOnlyBooleanProperty.readOnlyBooleanProperty(isValid);
+    }
+
     public IntegerProperty scaleProperty() {
         return scale;
     }
@@ -194,6 +231,7 @@ public class DecimalTextField extends TextFieldEx {
         Objects.requireNonNull(decimal);
 
         this.decimal.set(decimal.setScale(scale.get(), MathConstants.roundingMode));
+        doubleValue.setValue(this.decimal.getValue().doubleValue());    // set the double property
     }
 
     public @NotNull
@@ -317,22 +355,26 @@ public class DecimalTextField extends TextFieldEx {
 
         text = temp.toString();
 
-        // replace any ',' with periods so that it javascript parses it correctly
+        // replace any ',' with periods so that it can be parsed correctly
         if (fraction == ',') {
             text = text.replace(',', '.');
         }
 
         try {
+            doubleValue.setValue(new BigDecimal(text).doubleValue());   // try to set the double property
             return new BigDecimal(text).toString();
         } catch (final NumberFormatException nfe) {
             try {
                 final double val = MathEval.eval(text);
 
-                final BigDecimal value = new BigDecimal(val).setScale(scale.get(), MathConstants.roundingMode);
+                if (!Double.isNaN(val)) {
+                    final BigDecimal value = new BigDecimal(val);
 
-                decimal.set(value);
-                return value.toString();
-
+                    setDecimal(value);
+                    return value.toString();
+                }
+                doubleValue.set(Double.NaN);
+                return "";
             } catch (final ArithmeticException ex) {
                 return "";
             }
