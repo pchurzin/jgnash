@@ -17,30 +17,31 @@
  */
 package jgnash.engine;
 
+import jgnash.engine.budget.Budget;
+import jgnash.engine.budget.BudgetGoal;
+import jgnash.engine.recurring.DailyReminder;
+import jgnash.engine.recurring.Reminder;
+import jgnash.time.Period;
+import jgnash.util.FileUtils;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
+
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDate;
+import java.time.Month;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
-
-import jgnash.engine.budget.Budget;
-import jgnash.engine.budget.BudgetGoal;
-import jgnash.time.Period;
-import jgnash.engine.recurring.DailyReminder;
-import jgnash.engine.recurring.Reminder;
-import jgnash.util.FileUtils;
-
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -275,13 +276,6 @@ public abstract class EngineTest {
         assertEquals(0, a.getSecurities().size());
     }
 
-
-    @Disabled
-    @Test
-    void testGetInvestmentAccountListSecurityNode() {
-        fail("Not yet implemented");
-    }
-
     @Disabled
     @Test
     void testGetMarketPrice() {
@@ -290,14 +284,101 @@ public abstract class EngineTest {
 
     @Disabled
     @Test
-    void testBuildExchangeRateId() {
+    void testGetBaseCurrencies() {
         fail("Not yet implemented");
     }
 
-    @Disabled
     @Test
-    void testGetBaseCurrencies() {
-        fail("Not yet implemented");
+    void exchangeRateTest1() {
+
+        CurrencyNode usdNode = new CurrencyNode();
+        usdNode.setSymbol("USD");
+        usdNode.setPrefix("$");
+        usdNode.setDescription("US Dollar");
+        e.addCurrency(usdNode);
+
+        CurrencyNode cadNode = new CurrencyNode();
+        cadNode.setSymbol("CAD");
+        cadNode.setPrefix("$");
+        cadNode.setDescription("CAD Dollar");
+        e.addCurrency(cadNode);
+
+        assertNotNull(usdNode.getSymbol());
+        assertNotNull(cadNode.getSymbol());
+
+        e.setExchangeRate(usdNode, cadNode, new BigDecimal("1.100"));
+
+        assertEquals(new BigDecimal("1.100"), usdNode.getExchangeRate(cadNode));
+        assertEquals(new BigDecimal("0.909"), cadNode.getExchangeRate(usdNode).setScale(3, RoundingMode.DOWN));
+
+        assertEquals(BigDecimal.ONE, usdNode.getExchangeRate(usdNode));
+        assertEquals(BigDecimal.ONE, cadNode.getExchangeRate(cadNode));
+
+        assertTrue(e.removeCommodity(cadNode));
+    }
+
+    @Test
+    void exchangeRateTest2() {
+
+        CurrencyNode usdNode = new CurrencyNode();
+        usdNode.setSymbol("USD");
+        usdNode.setPrefix("$");
+        usdNode.setDescription("US Dollar");
+        e.addCurrency(usdNode);
+
+        CurrencyNode cadNode = new CurrencyNode();
+        cadNode.setSymbol("CAD");
+        cadNode.setPrefix("$");
+        cadNode.setDescription("CAD Dollar");
+        e.addCurrency(cadNode);
+
+        assertNotNull(usdNode.getSymbol());
+        assertNotNull(cadNode.getSymbol());
+
+        // rate is inverted when added
+        e.setExchangeRate(cadNode, usdNode, new BigDecimal("0.909"));
+
+        assertEquals(new BigDecimal("1.100"), usdNode.getExchangeRate(cadNode).setScale(3, RoundingMode.DOWN));
+        assertEquals(new BigDecimal("0.909"), cadNode.getExchangeRate(usdNode).setScale(3, RoundingMode.DOWN));
+
+
+        assertTrue(e.removeCommodity(cadNode));
+
+        EngineFactory.closeEngine(EngineFactory.DEFAULT);
+    }
+
+    @Test
+    void commodityNodeStoreTest() {
+        CurrencyNode node = new CurrencyNode();
+
+        node.setSymbol("USD");
+        node.setPrefix("$");
+        node.setDescription("US Dollar");
+
+        e.addCurrency(node);
+
+        node = e.getCurrency("USD");
+
+        Account account = new Account(AccountType.BANK, node);
+        account.setName("Bank Account");
+
+        e.addAccount(e.getRootAccount(), account);
+
+        Object cNode = e.getCurrency("USD");
+
+        //noinspection ConstantConditions
+        assertTrue(cNode instanceof CurrencyNode, "Returned object extends CurrencyNode");
+
+        //noinspection ConstantConditions
+        assertTrue(cNode instanceof StoredObject, "Returned object extends StoredObject");
+
+        Set<CurrencyNode> nodes = DefaultCurrencies.generateCurrencies();
+
+        for (final CurrencyNode n : nodes) {
+            e.addCurrency(n);
+        }
+
+        EngineFactory.closeEngine(EngineFactory.DEFAULT);
     }
 
     @Test
@@ -417,10 +498,66 @@ public abstract class EngineTest {
         assertTrue(nodes.size() > 1);
     }
 
-    @Disabled
+
     @Test
-    void testGetSecurityHistory() {
-        fail("Not yet implemented");
+    void testSecurityHistory() {
+        BigDecimal securityPrice1 = new BigDecimal("2.00");
+
+        final LocalDate transactionDate1 = LocalDate.of(2009, Month.DECEMBER, 26);
+
+        SecurityNode securityNode1 = new SecurityNode(e.getDefaultCurrency());
+        securityNode1.setSymbol("GOOGLE");
+        assertTrue(e.addSecurity(securityNode1));
+
+        SecurityHistoryNode history = new SecurityHistoryNode();
+        history.setDate(transactionDate1);
+        history.setPrice(securityPrice1);
+
+        assertTrue(e.addSecurityHistory(securityNode1, history));
+
+        assertEquals(1, securityNode1.getHistoryNodes().size());
+
+        // Same date and price, new instance
+        history = new SecurityHistoryNode();
+        history.setDate(transactionDate1);
+        history.setPrice(securityPrice1);
+
+        assertTrue(e.addSecurityHistory(securityNode1, history));   // should replace
+        assertEquals(1, securityNode1.getHistoryNodes().size());
+
+        // Same date, new instance and updated price
+        history = new SecurityHistoryNode();
+        history.setDate(transactionDate1);
+        history.setPrice(new BigDecimal("2.01"));
+
+        assertTrue(e.addSecurityHistory(securityNode1, history));  // should replace
+        assertEquals(1, securityNode1.getHistoryNodes().size());
+
+        final LocalDate transactionDate2 = LocalDate.of(2009, Month.DECEMBER, 27);
+
+        history = new SecurityHistoryNode();
+        history.setDate(transactionDate2);
+        history.setPrice(new BigDecimal("2.02"));
+        assertTrue(e.addSecurityHistory(securityNode1, history));  // should be okay
+        assertEquals(2, securityNode1.getHistoryNodes().size());
+
+        final SecurityHistoryEvent dividendEvent = new SecurityHistoryEvent(SecurityHistoryEventType.DIVIDEND, LocalDate.now(), BigDecimal.ONE);
+        securityNode1.addSecurityHistoryEvent(dividendEvent);
+
+
+        final SecurityHistoryEvent splitEvent = new SecurityHistoryEvent(SecurityHistoryEventType.SPLIT, LocalDate.now(), BigDecimal.TEN);
+        securityNode1.addSecurityHistoryEvent(splitEvent);
+
+        assertTrue(securityNode1.getHistoryEvents().contains(dividendEvent));
+        assertTrue(securityNode1.getHistoryEvents().contains(splitEvent));
+
+        assertEquals(2, securityNode1.getHistoryEvents().size());
+
+        securityNode1.removeSecurityHistoryEvent(dividendEvent);
+        assertEquals(1, securityNode1.getHistoryEvents().size());
+
+        securityNode1.removeSecurityHistoryEvent(splitEvent);
+        assertEquals(0, securityNode1.getHistoryEvents().size());
     }
 
     @Test
@@ -446,12 +583,6 @@ public abstract class EngineTest {
         assertEquals(0, new BigDecimal("1.01").compareTo(rate.getRate(yesterday)));
     }
 
-
-    @Disabled
-    @Test
-    void testSetDefaultCurrency() {
-        fail("Not yet implemented");
-    }
 
     @Test
     void testGetDefaultCurrency() {
@@ -786,7 +917,7 @@ public abstract class EngineTest {
         }
 
 
-        for (int i = 2; i >=0 ; i--) {
+        for (int i = 2; i >= 0; i--) {
             List<Transaction> transactions = e.getTransactions();
             assertTrue(e.removeTransaction(transactions.get(0)));
             assertEquals(i, e.getTransactions().size());

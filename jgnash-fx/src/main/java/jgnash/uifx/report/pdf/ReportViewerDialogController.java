@@ -22,24 +22,16 @@ import jgnash.resource.util.ResourceUtils;
 import jgnash.uifx.StaticUIMethods;
 import jgnash.uifx.control.BusyPane;
 import jgnash.uifx.report.ReportActions;
+import jgnash.uifx.util.FXMLUtils;
 import jgnash.uifx.util.InjectFXML;
 import jgnash.uifx.util.JavaFXUtils;
+import jgnash.uifx.util.StageUtils;
 import jgnash.uifx.views.main.MainView;
 import jgnash.util.DefaultDaemonThreadFactory;
 import jgnash.util.FileUtils;
-import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.printing.PDFPageable;
-import org.apache.pdfbox.rendering.PDFRenderer;
-
-import javax.print.attribute.HashPrintRequestAttributeSet;
-import javax.print.attribute.PrintRequestAttributeSet;
-import javax.print.attribute.Size2DSyntax;
-import javax.print.attribute.standard.MediaSize;
-import javax.print.attribute.standard.MediaSizeName;
 
 import java.awt.image.BufferedImage;
 import java.awt.print.PageFormat;
-import java.awt.print.PrinterJob;
 
 import java.io.File;
 import java.io.IOException;
@@ -69,7 +61,6 @@ import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
-import javafx.scene.Cursor;
 import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
@@ -87,8 +78,7 @@ import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
-
-import static jgnash.report.ui.ReportPrintFactory.pageFormatToMediaPrintableArea;
+import javafx.stage.Stage;
 
 /**
  * Viewer controller for PDFBox Reports.
@@ -101,7 +91,7 @@ public class ReportViewerDialogController {
 
     private static final int REPORT_RESOLUTION = 72;
 
-    private static final int UPSCALING = 2;
+    private static final int UP_SCALING = 2;
 
     private static final float MIN_ZOOM = 0.5f;
 
@@ -171,9 +161,6 @@ public class ReportViewerDialogController {
     private Button reportFormatButton;
 
     @FXML
-    private Button printButton;
-
-    @FXML
     private Button saveButton;
 
     @FXML
@@ -209,7 +196,6 @@ public class ReportViewerDialogController {
         stackPane.getChildren().add(busyPane);
 
         saveButton.disableProperty().bind(report.isNull());
-        printButton.disableProperty().bind(report.isNull());
         reportFormatButton.disableProperty().bind(report.isNull());
         fontSizeSpinner.disableProperty().bind(report.isNull());
 
@@ -415,7 +401,7 @@ public class ReportViewerDialogController {
                                 try {
 
                                     // report resolution is fixed and the ImageView width and height are adjusted to the zoom value
-                                    final BufferedImage bufferedImage = report.get().renderImage(i, REPORT_RESOLUTION * UPSCALING);
+                                    final BufferedImage bufferedImage = report.get().renderImage(i, REPORT_RESOLUTION * UP_SCALING);
 
                                     JavaFXUtils.runLater(() -> {
 
@@ -424,8 +410,8 @@ public class ReportViewerDialogController {
                                         imageView.setEffect(dropShadow);
 
                                         // bind the width and height to the zoom level
-                                        imageView.fitWidthProperty().bind(zoomProperty.multiply(bufferedImage.getWidth() / UPSCALING));
-                                        imageView.fitHeightProperty().bind(zoomProperty.multiply(bufferedImage.getHeight() / UPSCALING));
+                                        imageView.fitWidthProperty().bind(zoomProperty.multiply(bufferedImage.getWidth() / UP_SCALING));
+                                        imageView.fitHeightProperty().bind(zoomProperty.multiply(bufferedImage.getHeight() / UP_SCALING));
 
                                         children.add(imageView);
 
@@ -486,7 +472,6 @@ public class ReportViewerDialogController {
                 }
             }
         }
-
     }
 
     private void setPage(final int index) {
@@ -497,76 +482,26 @@ public class ReportViewerDialogController {
         setPageIndex(index);
     }
 
-    private static MediaSizeName getMediaSizeName(final PDDocument document) throws IOException {
-
-        final PDFRenderer renderer = new PDFRenderer(document);
-        final BufferedImage image = renderer.renderImageWithDPI(0, 72f);
-
-        float w, h, swp;
-        w = image.getWidth() / 72f;
-        h = image.getHeight() / 72f;
-
-        if (w > h) {
-            swp = w;
-            w = h;
-            h = swp;
-        }
-        return MediaSize.findMedia(w, h, Size2DSyntax.INCH);
-    }
-
-    // TODO: Use the JavaFx API for printing.  Individual nodes/page must be created and feed to the API
-    // TODO page format modifications within the print dialog are ignored
-    @FXML
-    private void handlePrintAction() {
-        final Task<Void> task = new Task<>() {
-            @Override
-            protected Void call() {
-                try {
-                    parent.get().setCursor(Cursor.WAIT);
-
-                    final PDDocument pdDocument = report.get().getPdfDocument();
-
-                    final MediaSizeName size = getMediaSizeName(pdDocument);
-
-                    final PDFPageable pdfPageable = new PDFPageable(pdDocument);
-
-                    final PrinterJob printerJob = PrinterJob.getPrinterJob();
-                    printerJob.setPageable(pdfPageable);
-
-                    final PrintRequestAttributeSet attr = new HashPrintRequestAttributeSet();
-                    attr.add(size);
-
-                    attr.add(pageFormatToMediaPrintableArea(report.get().getPageFormat()));
-                    //attr.add(pageFormatToMediaPrintableArea(pdfPageable.getPageFormat(0)));
-
-                    if (printerJob.printDialog(attr)) {
-
-                        // print
-                        printerJob.print(attr);
-                    }
-
-                } catch (final Exception e) {
-                    StaticUIMethods.displayException(e);
-                } finally {
-                    parent.get().setCursor(Cursor.DEFAULT);
-                }
-
-                return null;
-            }
-        };
-
-        task.run();
-    }
-
     @FXML
     private void handleFormatAction() {
         final PageFormat oldFormat = report.get().getPageFormat();
-        final PrinterJob job = PrinterJob.getPrinterJob();
 
-        final PageFormat format = job.pageDialog(oldFormat);
+        final FXMLUtils.Pair<PageFormatDialogController> pair = FXMLUtils.load(PageFormatDialogController.class.getResource("PageFormatDialog.fxml"),
+                resources.getString("Title.PageSetup"));
 
-        if (format != oldFormat) {
-            report.get().setPageFormat(format);
+        final PageFormatDialogController controller = pair.getController();
+        final Stage stage = pair.getStage();
+
+        StageUtils.addBoundsListener(stage, PageFormatDialogController.class);
+
+        stage.setResizable(false);
+        controller.setPageFormat(oldFormat);
+        stage.showAndWait();
+
+        final PageFormat newFormat = controller.getPageFormat();
+
+        if (newFormat != null) {
+            report.get().setPageFormat(newFormat);
             reportController.refreshReport();
         }
     }

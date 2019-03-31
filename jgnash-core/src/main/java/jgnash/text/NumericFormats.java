@@ -17,23 +17,23 @@
  */
 package jgnash.text;
 
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
+import java.text.NumberFormat;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.WeakHashMap;
+import java.util.prefs.Preferences;
+
 import jgnash.engine.CommodityNode;
 import jgnash.engine.message.Message;
 import jgnash.engine.message.MessageBus;
 import jgnash.engine.message.MessageChannel;
 import jgnash.engine.message.MessageListener;
 import jgnash.util.NotNull;
-
-import java.text.DecimalFormat;
-import java.text.DecimalFormatSymbols;
-import java.text.NumberFormat;
-import java.util.HashMap;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.TreeSet;
-import java.util.prefs.Preferences;
 
 /**
  * Utility class to provide Numeric formats
@@ -48,9 +48,9 @@ public final class NumericFormats {
 
     private static final CommodityListener listener;
 
-    private static final Map<CommodityNode, ThreadLocal<DecimalFormat>> fullInstanceMap = new HashMap<>();
+    private static final Map<CommodityNode, ThreadLocal<DecimalFormat>> fullInstanceMap = new WeakHashMap<>();
 
-    private static final Map<CommodityNode, ThreadLocal<DecimalFormat>> simpleInstanceMap = new HashMap<>();
+    private static final Map<CommodityNode, ThreadLocal<DecimalFormat>> simpleInstanceMap = new WeakHashMap<>();
 
     private static final String CURRENCY_SYMBOL = "¤";
 
@@ -172,7 +172,7 @@ public final class NumericFormats {
 
             // generate a full currency format
             if (pattern.contains(CURRENCY_SYMBOL)) {
-                return generateFullFormat(node);
+                return generateFullFormat(node, pattern);
             }
 
             final DecimalFormat df = new DecimalFormat(getShortFormatPattern());
@@ -212,15 +212,16 @@ public final class NumericFormats {
             return o.get();
         }
 
-        final ThreadLocal<DecimalFormat> threadLocal = ThreadLocal.withInitial(() -> generateFullFormat(node));
+        final ThreadLocal<DecimalFormat> threadLocal = ThreadLocal.withInitial(()
+                -> generateFullFormat(node, getFullFormatPattern()));
 
         fullInstanceMap.put(node, threadLocal);
 
         return threadLocal.get();
     }
 
-    private static DecimalFormat generateFullFormat(final CommodityNode node) {
-        final DecimalFormat df = new DecimalFormat(getFullFormatPattern());
+    private static DecimalFormat generateFullFormat(final CommodityNode node, final String pattern) {
+        final DecimalFormat df = new DecimalFormat(pattern);
 
         final DecimalFormatSymbols dfs = df.getDecimalFormatSymbols();
         dfs.setCurrencySymbol(node.getPrefix());

@@ -17,6 +17,7 @@
  */
 package jgnash.uifx;
 
+import java.util.function.Consumer;
 import java.util.prefs.Preferences;
 
 import javafx.beans.property.BooleanProperty;
@@ -27,6 +28,9 @@ import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.StringProperty;
 import javafx.beans.value.ChangeListener;
 import javafx.scene.control.ButtonBar;
+
+import jgnash.text.NumericFormats;
+import jgnash.time.DateUtils;
 import jgnash.uifx.control.TimePeriodComboBox;
 
 /**
@@ -74,6 +78,8 @@ public class Options {
 
     private static final String GLOBAL_BAYES_ENABLED = "globalBayesEnabled";
 
+    private static final String LAST_FORMAT_CHANGE = "lastFormatChange";
+
     private static final int DEFAULT_SNOOZE = TimePeriodComboBox.getPeriods()[0];
 
     private static final SimpleBooleanProperty useAccountingTerms;
@@ -112,11 +118,15 @@ public class Options {
 
     private static final SimpleStringProperty buttonOrder;
 
+    private static final SimpleStringProperty fullNumericFormat;
+
+    private static final SimpleStringProperty shortNumericFormat;
+
+    private static final SimpleStringProperty shortDateFormat;
+
     private static final ChangeListener<Boolean> booleanChangeListener;
 
     private static final ChangeListener<Number> integerChangeListener;
-
-    private static final ChangeListener<String> stringChangeListener;
 
     static {
         booleanChangeListener = (observable, oldValue, newValue) ->
@@ -124,9 +134,6 @@ public class Options {
 
         integerChangeListener = (observable, oldValue, newValue) ->
                 p.putInt(((SimpleIntegerProperty) observable).getName(), (Integer) newValue);
-
-        stringChangeListener = (observable, oldValue, newValue) ->
-                p.put(((SimpleStringProperty) observable).getName(), newValue);
 
         useAccountingTerms = createBooleanProperty(ACCOUNTING_TERMS, false);
         checkForUpdates = createBooleanProperty(CHECK_UPDATES, true);
@@ -147,11 +154,31 @@ public class Options {
 
         reminderSnoozePeriod = createIntegerProperty(REMINDER_SNOOZE, DEFAULT_SNOOZE);
 
-        buttonOrder = createStringProperty(BUTTON_ORDER, new ButtonBar().getButtonOrder());
-
         /* Zero value caused by a prior bug */
         if (Options.reminderSnoozePeriodProperty().get() <= 0) {
             Options.reminderSnoozePeriodProperty().setValue(DEFAULT_SNOOZE);
+        }
+
+        shortNumericFormat = createStringProperty(NumericFormats.getShortFormatPattern(), pattern -> {
+            NumericFormats.setShortFormatPattern(pattern);
+            updateLastFormatChange();
+        });
+
+        fullNumericFormat = createStringProperty(NumericFormats.getFullFormatPattern(), pattern -> {
+            NumericFormats.setFullFormatPattern(pattern);
+            updateLastFormatChange();
+        });
+
+        shortDateFormat = createStringProperty(DateUtils.getShortDatePattern(), pattern -> {
+            DateUtils.setShortDateFormatPattern(pattern);
+            updateLastFormatChange();
+        });
+
+        buttonOrder = createStringProperty(new ButtonBar().getButtonOrder(), s -> p.put(BUTTON_ORDER, s));
+
+        // Initialize with the current value if it's not been set before
+        if (getLastFormatChange() == 0) {
+            updateLastFormatChange();
         }
     }
 
@@ -173,11 +200,30 @@ public class Options {
         return property;
     }
 
-    private static SimpleStringProperty createStringProperty(final String name, final String defaultValue) {
-        final SimpleStringProperty property = new SimpleStringProperty(null, name, p.get(name, defaultValue));
-        property.addListener(stringChangeListener);
-
+    private static SimpleStringProperty createStringProperty(final String defaultValue, final Consumer<String> stringConsumer) {
+        final SimpleStringProperty property = new SimpleStringProperty(defaultValue);
+        property.addListener((observable, oldValue, newValue) -> stringConsumer.accept(newValue));
         return property;
+    }
+
+    public static StringProperty fullNumericFormatProperty() {
+        return fullNumericFormat;
+    }
+
+    public static StringProperty shortNumericFormatProperty() {
+        return shortNumericFormat;
+    }
+
+    public static StringProperty shortDateFormatProperty() {
+        return shortDateFormat;
+    }
+
+    public static long getLastFormatChange() {
+        return p.getLong(LAST_FORMAT_CHANGE, 0);   // default should trigger an update
+    }
+
+    private static void updateLastFormatChange() {
+        p.putLong(LAST_FORMAT_CHANGE, System.currentTimeMillis());
     }
 
     /**
