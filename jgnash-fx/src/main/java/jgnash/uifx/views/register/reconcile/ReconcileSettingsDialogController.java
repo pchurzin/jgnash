@@ -37,6 +37,7 @@ import jgnash.engine.Account;
 import jgnash.engine.Engine;
 import jgnash.engine.EngineFactory;
 import jgnash.engine.ReconcileManager;
+import jgnash.resource.util.ResourceUtils;
 import jgnash.time.DateUtils;
 import jgnash.uifx.Options;
 import jgnash.uifx.control.DatePickerEx;
@@ -45,7 +46,6 @@ import jgnash.uifx.util.FXMLUtils;
 import jgnash.uifx.util.InjectFXML;
 import jgnash.uifx.util.JavaFXUtils;
 import jgnash.uifx.views.AccountBalanceDisplayManager;
-import jgnash.resource.util.ResourceUtils;
 
 /**
  * Account reconcile settings dialog.
@@ -71,7 +71,7 @@ public class ReconcileSettingsDialogController {
     private DecimalTextField closingBalanceTextField;
 
     @FXML
-    private CheckBox autoFillClosingBalanceCheckBox;
+    private CheckBox autoFillBalanceCheckBox;
 
     @FXML
     private DatePickerEx datePicker;
@@ -84,7 +84,7 @@ public class ReconcileSettingsDialogController {
     private void initialize() {
         buttonBar.buttonOrderProperty().bind(Options.buttonOrderProperty());
 
-        autoFillClosingBalanceCheckBox.selectedProperty().set(preferences.getBoolean(CALC_BAL, false));
+        autoFillBalanceCheckBox.selectedProperty().set(preferences.getBoolean(CALC_BAL, false));
 
         accountProperty().addListener((observable, oldValue, newValue) -> {
             if (newValue != null) {
@@ -160,16 +160,21 @@ public class ReconcileSettingsDialogController {
 
     @FXML
     private void handleUpdateBalance() {
-        if (autoFillClosingBalanceCheckBox.isSelected()) {
+        if (autoFillBalanceCheckBox.isSelected()) {
             final Account account = accountProperty().get();
 
             // Balance at the statement date
             final BigDecimal closingBalance = AccountBalanceDisplayManager
                     .convertToSelectedBalanceMode(account.getAccountType(), account.getBalance(datePicker.getValue()));
             closingBalanceTextField.setDecimal(closingBalance);
+
+            // Balance at the 1st unreconciled transaction
+            final BigDecimal openingBalance = AccountBalanceDisplayManager.convertToSelectedBalanceMode(account.getAccountType(),
+                    account.getOpeningBalanceForReconcile());
+            openingBalanceTextField.setDecimal(openingBalance);
         }
 
-        preferences.putBoolean(CALC_BAL, autoFillClosingBalanceCheckBox.isSelected());
+        preferences.putBoolean(CALC_BAL, autoFillBalanceCheckBox.isSelected());
     }
 
     @FXML

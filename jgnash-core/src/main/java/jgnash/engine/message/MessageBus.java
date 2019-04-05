@@ -21,6 +21,7 @@ import java.lang.ref.WeakReference;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -28,6 +29,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -37,14 +39,12 @@ import jgnash.util.DefaultDaemonThreadFactory;
 /**
  * Thread safe Message Bus.
  *
- * @author Craig Cavanaugh
- */
-
-/*
  * Listeners are stored in a CopyOnWriteArraySet to prevent duplicate listeners
  * and to ease the burden of synchronizing against multiple threads.  The iterator
  * must be used for access, but removal of weak references must be done through the
  * set, not the iterator.
+ *
+ * @author Craig Cavanaugh
  */
 public class MessageBus {
 
@@ -227,19 +227,48 @@ public class MessageBus {
         return false;
     }
 
-    public void fireEvent(final Message message) {
+    /**
+     * Fires an event and blocks until all listeners have processed it.
+     *
+     * @param message {@code Message} to send
+     */
+    public void fireBlockingEvent(final Message message) {
+        final Future<Void> future = fireEvent(message);
 
-        pool.execute(() -> {
+        // spin until everyone has consumed the event
+        while(!future.isDone()) {
+            Thread.onSpinWait();
+        }
+    }
+
+    /**
+     * Fires and event to all listeners and return immediately with a {@code Future}
+     * @param message {@code Message} to send
+     *
+     * @return {@code Future} indicating when all listeners have processed the event
+     */
+    public Future<Void> fireEvent(final Message message) {
+
+        return pool.submit(() -> {
+            final Set<WeakReference<MessageListener>> staleListener = new HashSet<>();
+
             // Look for and post to local listeners
             final Set<WeakReference<MessageListener>> set = map.get(message.getChannel());
 
             if (set != null) {
-                for (WeakReference<MessageListener> ref : set) {
+                for (final WeakReference<MessageListener> ref : set) {
                     MessageListener l = ref.get();
                     if (l != null) {
                         l.messagePosted(message);
+                    } else {
+                        staleListener.add(ref);
                     }
                 }
+            }
+
+            // purge stale references to prevent a slowdown and wasted memory during a long application session
+            for (final WeakReference<MessageListener> staleReference : staleListener) {
+                set.remove(staleReference);
             }
 
             /* Post a remote message if configured to do so and filter system events.
@@ -250,6 +279,8 @@ public class MessageBus {
             if (!message.isRemote() && messageBusClient != null && message.getChannel() != MessageChannel.SYSTEM) {
                 messageBusClient.sendRemoteMessage(message);
             }
+
+            return null;
         });
     }
 }
