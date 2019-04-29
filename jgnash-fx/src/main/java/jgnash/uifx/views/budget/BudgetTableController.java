@@ -31,7 +31,9 @@ import javafx.beans.value.WeakChangeListener;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
+import javafx.geometry.Point2D;
 import javafx.geometry.Pos;
+import javafx.scene.Cursor;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollBar;
@@ -44,6 +46,8 @@ import javafx.scene.control.TreeItem;
 import javafx.scene.control.TreeTableCell;
 import javafx.scene.control.TreeTableColumn;
 import javafx.scene.control.TreeTableView;
+import javafx.scene.control.skin.TableHeaderRow;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.stage.Stage;
@@ -81,6 +85,8 @@ public class BudgetTableController implements MessageListener {
 
     private static final String RUNNING_TOTALS = "runningTotals";
 
+    private static final String ACCOUNT_COLUMN_WIDTH = "accountColumnWidth";
+
     private static final int ROW_HEIGHT_MULTIPLIER = 2;
 
     //TODO: Magic number that needs to be fixed or controlled with css
@@ -91,6 +97,8 @@ public class BudgetTableController implements MessageListener {
 
     // Initial column width
     private static final double INITIAL_WIDTH = 55;
+
+    private final Preferences preferences = Preferences.userNodeForPackage(BudgetTableController.class);
 
     @FXML
     private CheckBox runningTotalsButton;
@@ -205,10 +213,22 @@ public class BudgetTableController implements MessageListener {
 
     private static final int UPDATE_PERIOD = 350; // update period in milliseconds
 
+    /**
+     * Used to alter timing for rate limiting the first boot for a better visual effect
+     */
+    private volatile boolean booted = false;
+
+    private double startDragX;
+
+    private double startDragWidth;
+
+    /**
+     * Pseudo divider width is a function of the base text height
+     */
+    private double dividerWidth;
+
     @FXML
     private void initialize() {
-
-        final Preferences preferences = Preferences.userNodeForPackage(BudgetTableController.class);
         runningTotalsButton.selectedProperty().setValue(preferences.getBoolean(RUNNING_TOTALS, false));
 
         rateLimitExecutor = new ScheduledThreadPoolExecutor(1, new DefaultDaemonThreadFactory(),
@@ -220,34 +240,38 @@ public class BudgetTableController implements MessageListener {
             }
         };
 
-        updateHeights();
+        handleFontHeightChange();
 
         yearSpinner.setValueFactory(new SpinnerValueFactory.IntegerSpinnerValueFactory(
                 LocalDate.now().getYear() - YEAR_MARGIN, LocalDate.now().getYear() + YEAR_MARGIN,
                 LocalDate.now().getYear(), 1));
 
-        accountTreeView.getStylesheets().addAll(StyleClass.HIDE_VERTICAL_CSS);
+        accountTreeView.getStylesheets().addAll(StyleClass.HIDE_VERTICAL_CSS, StyleClass.HIDE_HORIZONTAL_CSS);
         accountTreeView.setColumnResizePolicy(TreeTableView.CONSTRAINED_RESIZE_POLICY);
         accountTreeView.setShowRoot(false);
         accountTreeView.setEditable(true);
         accountTreeView.fixedCellSizeProperty().bind(rowHeight);
 
         accountSummaryTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
-        accountSummaryTable.getStylesheets().addAll(StyleClass.HIDE_VERTICAL_CSS, StyleClass.HIDE_HORIZONTAL_CSS);
+        accountSummaryTable.getStylesheets().addAll(StyleClass.HIDE_VERTICAL_CSS, StyleClass.HIDE_HORIZONTAL_CSS, StyleClass.HIDE_TABLE_FOCUS);
         accountSummaryTable.setItems(expandedAccountList);
         accountSummaryTable.fixedCellSizeProperty().bind(rowHeight);
         accountSummaryTable.setSelectionModel(new NullTableViewSelectionModel<>(accountSummaryTable));
 
         accountTypeTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
-        accountTypeTable.getStylesheets().add(StyleClass.HIDE_HEADER_CSS);
+        accountTypeTable.getStylesheets().addAll(StyleClass.HIDE_HEADER_CSS, StyleClass.HIDE_HORIZONTAL_CSS, StyleClass.HIDE_VERTICAL_CSS, StyleClass.HIDE_TABLE_FOCUS);
         accountTypeTable.setItems(accountGroupList);
         accountTypeTable.fixedCellSizeProperty().bind(rowHeight);
         accountTypeTable.prefHeightProperty()
                 .bind(rowHeight.multiply(Bindings.size(accountGroupList)).add(BORDER_MARGIN));
         accountTypeTable.setSelectionModel(new NullTableViewSelectionModel<>(accountTypeTable));
 
+        // widths need to be bound to the tree view widths for drag/resizing to work
+        accountTypeTable.minWidthProperty().bind(accountTreeView.minWidthProperty());
+        accountTypeTable.prefWidthProperty().bind(accountTreeView.prefWidthProperty());
+
         accountGroupPeriodSummaryTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
-        accountGroupPeriodSummaryTable.getStylesheets().addAll(StyleClass.HIDE_HEADER_CSS, StyleClass.HIDE_HORIZONTAL_CSS, StyleClass.HIDE_VERTICAL_CSS);
+        accountGroupPeriodSummaryTable.getStylesheets().addAll(StyleClass.HIDE_HEADER_CSS, StyleClass.HIDE_HORIZONTAL_CSS, StyleClass.HIDE_VERTICAL_CSS, StyleClass.HIDE_TABLE_FOCUS);
         accountGroupPeriodSummaryTable.setItems(accountGroupList);
         accountGroupPeriodSummaryTable.fixedCellSizeProperty().bind(rowHeight);
         accountGroupPeriodSummaryTable.prefHeightProperty()
@@ -268,7 +292,9 @@ public class BudgetTableController implements MessageListener {
         accountTreeView.expandedItemCountProperty().addListener((observable, oldValue, newValue)
                 -> JavaFXUtils.runLater(this::updateExpandedAccountList));
 
-        final ChangeListener<Object> budgetChangeListener = (observable, oldValue, newValue) -> handleBudgetChange();
+        // Calling handleBudgetChange which works for most changes, but can trigger an exception.
+        // handleBudgetUpdate rate limits and prevents an exception.
+        final ChangeListener<Object> budgetChangeListener = (observable, oldValue, newValue) -> handleBudgetUpdate();
 
         budget.addListener(budgetChangeListener);
         yearSpinner.valueProperty().addListener(budgetChangeListener);
@@ -316,8 +342,57 @@ public class BudgetTableController implements MessageListener {
         );
 
         // listen for changes in the font scale and update.  Listener needs to be weak to prevent memory leaks
-        fontScaleListener = (observable, oldValue, newValue) -> updateHeights();
+        fontScaleListener = (observable, oldValue, newValue) -> handleFontHeightChange();
         ThemeManager.fontScaleProperty().addListener(new WeakChangeListener<>(fontScaleListener));
+
+        accountTreeView.setOnMouseMoved(this::handleMouseMove);         // cursor handler
+        accountTreeView.setOnMouseDragged(this::handleDividerDrag);     // drag handler
+        accountTreeView.setOnMousePressed(this::handleMouseClicked);    // drag handler
+
+        accountTypeTable.setOnMouseMoved(this::handleMouseMove);         // cursor handler
+        accountTypeTable.setOnMouseDragged(this::handleDividerDrag);     // drag handler
+        accountTypeTable.setOnMousePressed(this::handleMouseClicked);    // drag handler
+
+        JavaFXUtils.runLater(() -> accountTreeView.setPrefWidth(preferences.getDouble(ACCOUNT_COLUMN_WIDTH, INITIAL_WIDTH * 2)));
+    }
+
+    /**
+     * Determines if the cursor is hovering over the pseudo divider
+     *
+     * @param xPos x position of the scene
+     * @return true if hovering over the divider
+     */
+    private boolean isOnDivider(final double xPos) {
+        final Point2D nodeInScene
+                = accountTreeView.localToScene(accountTreeView.getLayoutX(), accountTreeView.getLayoutY());
+
+        return Math.abs(accountTreeView.getWidth() + nodeInScene.getX() - xPos) < (dividerWidth * 0.5);
+    }
+
+    private void handleDividerDrag(final MouseEvent event) {
+        accountTreeView.setPrefWidth(Math.max(startDragWidth + event.getSceneX() - startDragX, INITIAL_WIDTH * 2));
+        preferences.putDouble(ACCOUNT_COLUMN_WIDTH, accountTreeView.getWidth());
+        event.consume();
+    }
+
+    /**
+     * Saves information for calculating drag/resize of the account tree column
+     *
+     * @param event Mouse event
+     */
+    private void handleMouseClicked(final MouseEvent event) {
+        startDragX = event.getSceneX();
+        startDragWidth = accountTreeView.getWidth();
+        event.consume();
+    }
+
+    /**
+     * Handles changing the cursor shape when hovering over the pseudo divider
+     *
+     * @param event Mouse event
+     */
+    private void handleMouseMove(final MouseEvent event) {
+        gridPane.getScene().setCursor(event != null && isOnDivider(event.getSceneX()) ? Cursor.H_RESIZE : Cursor.DEFAULT);
     }
 
     private void rateLimitUpdate(final Runnable runnable) {
@@ -325,7 +400,9 @@ public class BudgetTableController implements MessageListener {
             if (rateLimitExecutor.getQueue().size() < 1) {   // ignore if we already have one waiting in the queue
                 JavaFXUtils.runLater(runnable);    // update is assumed to be on the platform thread
             }
-        }, UPDATE_PERIOD, TimeUnit.MILLISECONDS);
+
+            booted = true;
+        }, booted ? UPDATE_PERIOD : 0, TimeUnit.MILLISECONDS);
     }
 
     @FXML
@@ -378,8 +455,9 @@ public class BudgetTableController implements MessageListener {
         return budget;
     }
 
-    private void updateHeights() {
+    private void handleFontHeightChange() {
         rowHeight.set(ThemeManager.getBaseTextHeight() * ROW_HEIGHT_MULTIPLIER);
+        dividerWidth = ThemeManager.getBaseTextHeight();    // update divider width
     }
 
     /**
@@ -593,7 +671,7 @@ public class BudgetTableController implements MessageListener {
 
                 // push to the edit of the platform thread to avoid an IllegalStateException
                 // "showAndWait is not allowed during animation or layout processing" exception
-                // this may be reach outside the platform thread if a uses is click happy
+                // this may be reached outside the platform thread if a uses is click happy
                 if (Platform.isFxApplicationThread()) {
                     handleEditAccountGoals(account);
                 } else {
@@ -606,9 +684,6 @@ public class BudgetTableController implements MessageListener {
         headerColumn.getColumns().add(nameColumn);
 
         accountTreeView.getColumns().add(headerColumn);
-
-        headerColumn.minWidthProperty().bind(accountTreeView.widthProperty());
-        headerColumn.maxWidthProperty().bind(accountTreeView.widthProperty());
     }
 
     private void buildAccountTypeTable() {
@@ -716,6 +791,7 @@ public class BudgetTableController implements MessageListener {
 
         final TableColumn<Account, BigDecimal> remainingColumn
                 = new TableColumn<>(resources.getString("Column.Remaining"));
+
         remainingColumn.setCellValueFactory(param -> {
             if (param.getValue() != null) {
                 return new SimpleObjectProperty<>(budgetResultsModel.getResults(descriptor,
@@ -755,9 +831,11 @@ public class BudgetTableController implements MessageListener {
         gridPane.getChildren().add(periodTable);
 
         periodTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
-        periodTable.getStylesheets().addAll(StyleClass.HIDE_HORIZONTAL_CSS, StyleClass.HIDE_VERTICAL_CSS);
+        periodTable.getStylesheets().addAll(StyleClass.HIDE_HORIZONTAL_CSS, StyleClass.HIDE_VERTICAL_CSS, StyleClass.HIDE_TABLE_FOCUS);
         periodTable.fixedCellSizeProperty().bind(rowHeight);
         periodTable.setSelectionModel(new NullTableViewSelectionModel<>(periodTable));
+
+        // TODO: disable reordering...
 
         // index exceeds allowed value because the user reduced the period count, reset to the maximum allowed value
         if (index > budgetResultsModel.getDescriptorList().size() - visibleColumnCount.get()) {
@@ -772,6 +850,16 @@ public class BudgetTableController implements MessageListener {
 
         periodTable.setItems(expandedAccountList);
         periodTable.widthProperty().addListener(tableWidthChangeListener);
+
+        periodTable.setOnMouseMoved(this::handleMouseMove);         // cursor
+        periodTable.setOnMouseDragged(this::handleDividerDrag);     // drag
+        periodTable.setOnMousePressed(this::handleMouseClicked);    // drag
+
+        // hack to disable reordering of the table columns
+        periodTable.widthProperty().addListener((source, oldWidth, newWidth) -> {
+            TableHeaderRow header = (TableHeaderRow) periodTable.lookup("TableHeaderRow");
+            header.reorderingProperty().addListener((observable, oldValue, newValue) -> header.setReordering(false));
+        });
     }
 
     private TableColumn<AccountGroup, BigDecimal> buildAccountPeriodSummaryColumn(final int index) {
@@ -843,13 +931,15 @@ public class BudgetTableController implements MessageListener {
         // recreate the table and load the new one into the grid pane
         final int row = GridPane.getRowIndex(periodSummaryTable);
         final int column = GridPane.getColumnIndex(periodSummaryTable);
+
         gridPane.getChildren().remove(periodSummaryTable);
         periodSummaryTable = new TableView<>();
+
         GridPane.setConstraints(periodSummaryTable, column, row);
         gridPane.getChildren().add(periodSummaryTable);
 
         periodSummaryTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
-        periodSummaryTable.getStylesheets().addAll(StyleClass.HIDE_HORIZONTAL_CSS, StyleClass.HIDE_VERTICAL_CSS, StyleClass.HIDE_HEADER_CSS);
+        periodSummaryTable.getStylesheets().addAll(StyleClass.HIDE_HORIZONTAL_CSS, StyleClass.HIDE_VERTICAL_CSS, StyleClass.HIDE_HEADER_CSS, StyleClass.HIDE_TABLE_FOCUS);
         periodSummaryTable.fixedCellSizeProperty().bind(rowHeight);
         periodSummaryTable.prefHeightProperty()
                 .bind(rowHeight.multiply(Bindings.size(accountGroupList)).add(BORDER_MARGIN));
@@ -862,6 +952,10 @@ public class BudgetTableController implements MessageListener {
         }
 
         periodSummaryTable.setItems(accountGroupList);
+
+        periodSummaryTable.setOnMouseMoved(this::handleMouseMove);         // cursor
+        periodSummaryTable.setOnMouseDragged(this::handleDividerDrag);     // drag
+        periodSummaryTable.setOnMousePressed(this::handleMouseClicked);    // drag
     }
 
     private void buildAccountGroupSummaryTable() {

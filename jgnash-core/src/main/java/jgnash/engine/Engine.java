@@ -36,9 +36,11 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletionService;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -91,11 +93,9 @@ public class Engine {
     /**
      * Current version for the file format.
      */
-    public static final int CURRENT_MAJOR_VERSION = 2;
+    public static final int CURRENT_MAJOR_VERSION = 3;
 
-    public static final int CURRENT_MINOR_VERSION = 35;
-
-    public static final float CURRENT_VERSION = CURRENT_MAJOR_VERSION + (CURRENT_MINOR_VERSION / 100f);
+    public static final int CURRENT_MINOR_VERSION = 1;
 
     // Lock name
     private static final String BIG_LOCK = "bigLock";
@@ -158,14 +158,17 @@ public class Engine {
      * All engine instances will share the same message bus.
      */
     private MessageBus messageBus;
+    
     /**
      * Cached for performance.
      */
     private Config config;
+    
     /**
      * Cached for performance.
      */
     private RootAccount rootAccount;
+    
     private ExchangeRateDAO exchangeRateDAO;
     /**
      * Cached for performance.
@@ -176,7 +179,7 @@ public class Engine {
         Objects.requireNonNull(name, "The engine name may not be null");
         Objects.requireNonNull(eDAO, "The engineDAO may not be null");
 
-        logger.log(Level.INFO, "Release {0}", CURRENT_VERSION);
+        logger.log(Level.INFO, "Release {0}.{1}", new Object[]{CURRENT_MAJOR_VERSION, CURRENT_MINOR_VERSION});
 
         this.attachmentManager = attachmentManager;
         this.eDAO = eDAO;
@@ -2016,6 +2019,7 @@ public class Engine {
     /**
      * Returns an {@code Account} attribute.
      *
+     * @param account account to extract attribute from
      * @param key the attribute key
      * @return the attribute if found
      * @see #setAccountAttribute
@@ -2861,7 +2865,11 @@ public class Engine {
 
             // submit the callables
             for (final BackgroundCallable backgroundCallable : backgroundCallables) {
-                completionService.submit(backgroundCallable);
+                try {
+                    completionService.submit(backgroundCallable);
+                } catch (final RejectedExecutionException ignored) {
+                    // ignore, race to shut down the executor was won
+                }
             }
 
             // poll until complete or there have been too many errors
@@ -2875,7 +2883,7 @@ public class Engine {
 
                     errors += future.get() ? 0 : 1;
 
-                } catch (final Exception e) {
+                } catch (final InterruptedException | ExecutionException e) {
                     errors = Integer.MAX_VALUE;
                     logger.log(Level.SEVERE, e.getLocalizedMessage(), e);
                 }
