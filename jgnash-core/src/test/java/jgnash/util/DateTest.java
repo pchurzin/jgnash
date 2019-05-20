@@ -19,11 +19,14 @@ package jgnash.util;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.Month;
 import java.time.format.DateTimeFormatter;
 import java.util.Date;
 
 import jgnash.time.DateUtils;
+
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -59,9 +62,9 @@ class DateTest {
         // test days for year 2011
         LocalDate[] days = DateUtils.getFirstDayWeekly(2011);
 
-        //        for (Date day : days) {
-        //            System.out.println(day.toString());
-        //        }
+        /*for (final LocalDate day : days) {
+            System.out.println(day.toString());
+        }*/
 
         assertEquals(52, days.length);
 
@@ -71,6 +74,11 @@ class DateTest {
 
         // test days for year 2004
         days = DateUtils.getFirstDayWeekly(2004);
+
+
+        /*for (final LocalDate day : days) {
+            System.out.println(day.toString());
+        }*/
 
         assertEquals(53, days.length);
 
@@ -83,9 +91,9 @@ class DateTest {
         // test days for year 2015
         days = DateUtils.getFirstDayWeekly(2015);
 
-        //        for (Date day: days) {
-        //            System.out.println(day.toString());
-        //        }
+        /*for (final LocalDate day : days) {
+            System.out.println(day.toString());
+        }*/
 
         assertEquals(53, days.length);
 
@@ -126,6 +134,46 @@ class DateTest {
 
         assertEquals(365 - 31 - 30 + 1, days[10].getDayOfYear());
         assertEquals(365 - 31 + 1, days[11].getDayOfYear());
+    }
+
+    @Test
+    void getFirstDaysInMonthTest2() {
+        LocalDate[] days = DateUtils.getFirstDayMonthly(Month.JANUARY, 2011, 12);
+
+        assertEquals(12, days.length);
+        assertEquals(1, days[0].getDayOfYear());
+        assertEquals(1 + 31, days[1].getDayOfYear());
+        assertEquals(1 + 31 + 28, days[2].getDayOfYear());
+        assertEquals(1 + 31 + 28 + 31, days[3].getDayOfYear());
+
+        assertEquals(365 - 31 - 30 + 1, days[10].getDayOfYear());
+        assertEquals(365 - 31 + 1, days[11].getDayOfYear());
+
+        // roll past 2011 test
+        days = DateUtils.getFirstDayMonthly(Month.FEBRUARY, 2011, 12);
+
+        assertEquals(12, days.length);
+        assertEquals(2011, days[0].getYear());
+        assertEquals(2012, days[11].getYear());
+        assertEquals(DayOfWeek.SUNDAY, days[11].getDayOfWeek());
+    }
+
+    @Test
+    void quaterTest() {
+        LocalDate[] days = DateUtils.getFirstDayQuarterly(2019);
+
+        assertEquals(days[0], LocalDate.of(2019, 1, 1));
+        assertEquals(days[1], LocalDate.of(2019, 4, 1));
+        assertEquals(days[2], LocalDate.of(2019, 7, 1));
+        assertEquals(days[3], LocalDate.of(2019, 10, 1));
+
+
+        days = DateUtils.getFirstDayQuarterly(Month.APRIL, 2019, 4);
+
+        assertEquals(days[0], LocalDate.of(2019, 4, 1));
+        assertEquals(days[1], LocalDate.of(2019, 7, 1));
+        assertEquals(days[2], LocalDate.of(2019, 10, 1));
+        assertEquals(days[3], LocalDate.of(2020, 1, 1));
     }
 
     @Test

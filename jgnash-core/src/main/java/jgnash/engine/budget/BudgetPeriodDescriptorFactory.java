@@ -18,34 +18,35 @@
 package jgnash.engine.budget;
 
 import java.time.LocalDate;
+import java.time.Month;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-import jgnash.time.Period;
 import jgnash.time.DateUtils;
+import jgnash.time.Period;
+
+import org.apache.commons.collections4.map.ReferenceMap;
 
 /**
  * Factory class for generating descriptors.
- * 
- * @author Craig Cavanaugh
  *
+ * @author Craig Cavanaugh
  */
 public final class BudgetPeriodDescriptorFactory {
 
-    private static final Map<String, List<BudgetPeriodDescriptor>> cache = new HashMap<>();
+    private static final Map<String, List<BudgetPeriodDescriptor>> cache = new ReferenceMap<>();
 
     private static final ReadWriteLock rwl = new ReentrantReadWriteLock(false);
 
     private BudgetPeriodDescriptorFactory() {
     }
 
-    public static List<BudgetPeriodDescriptor> getDescriptors(final int budgetYear, final Period budgetPeriod) {
-        final String cacheKey = budgetYear + budgetPeriod.name();
+    public static List<BudgetPeriodDescriptor> getDescriptors(final int budgetYear, final Month startingMonth, final Period budgetPeriod) {
+
+        final String cacheKey = budgetYear + budgetPeriod.name() + startingMonth.ordinal();
 
         List<BudgetPeriodDescriptor> descriptors;
 
@@ -58,42 +59,40 @@ public final class BudgetPeriodDescriptorFactory {
 
         // build the descriptor List if not cached
         if (descriptors == null) {
+
             LocalDate[] dates = new LocalDate[0];
 
             switch (budgetPeriod) {
                 case DAILY:
-                    dates = DateUtils.getAllDays(budgetYear);
+                    dates = DateUtils.getAllDays(startingMonth, budgetYear, DateUtils.getDaysInYear(budgetYear) + 1);
                     break;
                 case WEEKLY:
-                    dates = DateUtils.getFirstDayWeekly(budgetYear);
+                    dates = DateUtils.getFirstDayWeekly(startingMonth, budgetYear, 52 + 1);
                     break;
                 case BI_WEEKLY:
-                    dates = DateUtils.getFirstDayBiWeekly(budgetYear);
+                    dates = DateUtils.getFirstDayBiWeekly(startingMonth, budgetYear, 26 + 1);
                     break;
                 case MONTHLY:
-                    dates = DateUtils.getFirstDayMonthly(budgetYear);
+                    dates = DateUtils.getFirstDayMonthly(startingMonth, budgetYear, 12 + 1);
                     break;
                 case QUARTERLY:
-                    dates = DateUtils.getFirstDayQuarterly(budgetYear);
+                    dates = DateUtils.getFirstDayQuarterly(startingMonth, budgetYear, 4 + 1);
                     break;
                 case YEARLY:
-                    dates = new LocalDate[] {LocalDate.ofYearDay(budgetYear, 1)};
+                    dates = DateUtils.getFirstDayWeekly(startingMonth, budgetYear, 2, 52);
                     break;
             }
 
             descriptors = new ArrayList<>(dates.length);
 
-            for (final LocalDate date : dates) {
-                descriptors.add(new BudgetPeriodDescriptor(date, budgetYear, budgetPeriod));
+            for (int i = 0; i < dates.length - 1; i++) {
+                descriptors.add(new BudgetPeriodDescriptor(dates[i], dates[i + 1].minusDays(1), budgetPeriod));
             }
 
             // Debugging info
-            /*for (BudgetPeriodDescriptor budgetPeriodDescriptor: descriptors) {
-                System.out.println(budgetPeriodDescriptor.getStartPeriod());
-                System.out.println(budgetPeriodDescriptor.getEndPeriod());
-                System.out.println(budgetPeriodDescriptor.getStartDate());
-                System.out.println(budgetPeriodDescriptor.getEndDate());
-                System.out.println();
+            /*System.out.println("Descriptor list length: " + descriptors.size());
+            for (final BudgetPeriodDescriptor descriptor : descriptors) {
+                System.out.println(descriptor.toString());
             }*/
 
             rwl.writeLock().lock();
@@ -103,8 +102,6 @@ public final class BudgetPeriodDescriptorFactory {
                 rwl.writeLock().unlock();
             }
         }
-
-        Collections.sort(descriptors);
 
         return descriptors;
     }

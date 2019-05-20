@@ -76,7 +76,7 @@ public class BudgetGoal implements Cloneable, Serializable {
     }
 
     public final BigDecimal[] getGoals() {
-        return budgetGoals.toArray(new BigDecimal[0]);
+        return budgetGoals.toArray(BigDecimal[]::new);
     }
 
     public final void setGoals(final BigDecimal[] goals) {
@@ -115,22 +115,55 @@ public class BudgetGoal implements Cloneable, Serializable {
         this.budgetPeriod = Objects.requireNonNull(budgetPeriod);
     }
 
-    public void setGoal(final int startPeriod, final int endPeriod, final BigDecimal amount) {
-        BigDecimal divisor = new BigDecimal(endPeriod - startPeriod + 1);
+    public void setGoal(final int startPeriod, final int endPeriod, final BigDecimal amount, final boolean leapYear) {
+        if (startPeriod <= endPeriod) {
 
-        final BigDecimal portion = amount.divide(divisor, MathConstants.budgetMathContext);
+            final BigDecimal divisor = new BigDecimal(endPeriod - startPeriod + 1);
+            final BigDecimal portion = amount.divide(divisor, MathConstants.budgetMathContext);
 
-        for (int i = startPeriod; i <= endPeriod; i++) {
-            budgetGoals.set(i, portion);
+            for (int i = startPeriod; i <= endPeriod && i < BudgetGoal.PERIODS; i++) {
+                budgetGoals.set(i, portion);
+            }
+        } else {    // wrap around the array, need to handle a leap year
+            final BigDecimal divisor = new BigDecimal(BudgetGoal.PERIODS - startPeriod + endPeriod - (leapYear ? 1 : 0));
+            final BigDecimal portion = amount.divide(divisor, MathConstants.budgetMathContext);
+
+            //System.out.println("divisor: " + divisor+ ", start: " + startPeriod + ", end: " + endPeriod + ", leapYear: " + leapYear);
+
+            for (int i = startPeriod; i < BudgetGoal.PERIODS - (leapYear ? 0 : 1); i++) {
+                budgetGoals.set(i, portion);
+            }
+
+            for (int i = 0; i <= endPeriod && i < BudgetGoal.PERIODS; i++) {
+                budgetGoals.set(i, portion);
+            }
         }
     }
 
-    public BigDecimal getGoal(final int startPeriod, final int endPeriod) {
+    public BigDecimal getGoal(final int startPeriod, final int endPeriod, final boolean leapYear) {
         BigDecimal amount = BigDecimal.ZERO;
 
-        // clip to the max number of periods... some locale calendars behave differently
-        for (int i = startPeriod; i <= endPeriod && i <= BudgetGoal.PERIODS - 1; i++) {
-            amount = amount.add(budgetGoals.get(i));
+
+        if (startPeriod <= endPeriod) {
+            // clip to the max number of periods... some locale calendars behave differently
+            for (int i = startPeriod; i <= endPeriod && i < BudgetGoal.PERIODS; i++) {
+                amount = amount.add(budgetGoals.get(i));
+            }
+        } else {    // wrap around the array, need to handle a leap year
+            //int days = 0;
+
+            for (int i = startPeriod; i < BudgetGoal.PERIODS - (leapYear ? 0 : 1); i++) {
+                //days++;
+                amount = amount.add(budgetGoals.get(i));
+            }
+
+            for (int i = 0; i <= endPeriod && i < BudgetGoal.PERIODS; i++) {
+                //days++;
+                amount = amount.add(budgetGoals.get(i));
+            }
+
+            //System.out.println("days: " + days+ ", start: " + startPeriod + ", end: " + endPeriod + ", leapYear: " + leapYear);
+
         }
 
         return amount;

@@ -49,19 +49,20 @@ public class BudgetFactory {
         final Engine engine = EngineFactory.getEngine(EngineFactory.DEFAULT);
         Objects.requireNonNull(engine);
 
-        Budget budget = new Budget();
+        final Budget budget = new Budget();
         budget.setName(name);
         budget.setBudgetPeriod(budgetPeriod);
 
         int year = LocalDate.now().getYear() - 1;
 
-        List<BudgetPeriodDescriptor> descriptors = BudgetPeriodDescriptorFactory.getDescriptors(year, budgetPeriod);
+        final List<BudgetPeriodDescriptor> descriptors
+                = BudgetPeriodDescriptorFactory.getDescriptors(year, budget.getStartMonth(), budgetPeriod);
 
-        List<Account> accounts = new ArrayList<>();
+        final List<Account> accounts = new ArrayList<>();
         accounts.addAll(engine.getIncomeAccountList());
         accounts.addAll(engine.getExpenseAccountList());
 
-        for (Account account : accounts) {
+        for (final Account account : accounts) {
             budget.setBudgetGoal(account, buildAverageBudgetGoal(account, descriptors, round));
         }
 
@@ -75,7 +76,7 @@ public class BudgetFactory {
 
         goal.setBudgetPeriod(descriptors.get(0).getBudgetPeriod());
 
-        for (BudgetPeriodDescriptor descriptor : descriptors) {
+        for (final BudgetPeriodDescriptor descriptor : descriptors) {
             BigDecimal amount = account.getBalance(descriptor.getStartDate(), descriptor.getEndDate());
 
             if (account.getAccountType() == AccountType.INCOME) {
@@ -90,7 +91,7 @@ public class BudgetFactory {
                 }
             }
 
-            goal.setGoal(descriptor.getStartPeriod(), descriptor.getEndPeriod(), amount);
+            goal.setGoal(descriptor.getStartPeriod(), descriptor.getEndPeriod(), amount, descriptor.getStartDate().isLeapYear());
         }
 
         return goal;
@@ -131,7 +132,7 @@ public class BudgetFactory {
             final BudgetPeriodDescriptor descriptor = descriptors.get(i);
 
             goal.setBudgetPeriod(descriptor.getBudgetPeriod());
-            goal.setGoal(descriptor.getStartPeriod(), descriptor.getEndPeriod(), amount);
+            goal.setGoal(descriptor.getStartPeriod(), descriptor.getEndPeriod(), amount, descriptor.getStartDate().isLeapYear());
         }
 
         return goal;

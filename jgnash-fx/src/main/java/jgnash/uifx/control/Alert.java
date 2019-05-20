@@ -17,9 +17,6 @@
  */
 package jgnash.uifx.control;
 
-import java.util.Optional;
-import java.util.ResourceBundle;
-
 import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.fxml.FXML;
@@ -32,13 +29,15 @@ import javafx.scene.control.Label;
 import javafx.scene.paint.Color;
 import javafx.stage.Stage;
 import javafx.stage.Window;
-
+import jgnash.resource.util.ResourceUtils;
 import jgnash.uifx.resource.font.FontAwesomeLabel;
 import jgnash.uifx.skin.ThemeManager;
 import jgnash.uifx.util.FXMLUtils;
 import jgnash.uifx.util.InjectFXML;
 import jgnash.util.NotNull;
-import jgnash.resource.util.ResourceUtils;
+
+import java.util.Optional;
+import java.util.ResourceBundle;
 
 /**
  * A Better behaved Alert class.
@@ -74,6 +73,8 @@ public class Alert {
 
         dialog = FXMLUtils.loadFXML(this, "AlertDialog.fxml", resources);
 
+        setContentText(contentText);
+
         switch (alertType) {
             case ERROR:
                 setGraphic(new FontAwesomeLabel(FontAwesomeLabel.FAIcon.EXCLAMATION_TRIANGLE,
@@ -99,8 +100,6 @@ public class Alert {
                 break;
             default:
         }
-
-        setContentText(contentText);
     }
 
     public void setTitle(final String title) {
@@ -138,8 +137,10 @@ public class Alert {
     }
 
     public Optional<ButtonType> showAndWait() {
+        dialog.sizeToScene();
         dialog.setResizable(false);
         dialog.showAndWait();
+
         return getButtonType();
     }
 }

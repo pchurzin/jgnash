@@ -85,7 +85,8 @@ public class BudgetResultsModel implements MessageListener {
 
     public BudgetResultsModel(final Budget budget, final int year, final CurrencyNode baseCurrency, final boolean useRunningTotals) {
         this.budget = budget;
-        this.descriptorList = BudgetPeriodDescriptorFactory.getDescriptors(year, this.budget.getBudgetPeriod());
+        this.descriptorList = BudgetPeriodDescriptorFactory.getDescriptors(year, budget.getStartMonth(), budget.getBudgetPeriod());
+
         this.baseCurrency = baseCurrency;
         this.useRunningTotals = useRunningTotals;
 
@@ -417,7 +418,8 @@ public class BudgetResultsModel implements MessageListener {
             if (accounts.contains(account)) {
                 final BudgetGoal goal = budget.getBudgetGoal(account);
 
-                results.setBudgeted(goal.getGoal(descriptor.getStartPeriod(), descriptor.getEndPeriod()));
+                results.setBudgeted(goal.getGoal(descriptor.getStartPeriod(), descriptor.getEndPeriod(),
+                        descriptor.getStartDate().isLeapYear()));
 
                 // calculate the change and remaining amount for the budget
                 if (account.getAccountType() == AccountType.INCOME) {
