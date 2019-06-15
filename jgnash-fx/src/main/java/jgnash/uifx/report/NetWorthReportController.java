@@ -120,19 +120,21 @@ public class NetWorthReportController implements ReportController {
     }
 
     private void addTable() {
-        AbstractReportTableModel model = createReportModel();
+        final AbstractReportTableModel model = createReportModel();
 
         report.clearReport();
+        report.setTitle(ResourceUtils.getString("Word.NetWorth"));
 
         try {
-            report.addTable(model, ResourceUtils.getString("Word.NetWorth"));
+            report.addTable(model);
             report.addFooter();
         } catch (final IOException e) {
             e.printStackTrace();
         }
     }
 
-    private AbstractReportTableModel createReportModel() {
+    @Override
+    public AbstractReportTableModel createReportModel() {
         report.setReportPeriod(resolutionComboBox.getValue());
 
         return report.createReportModel(startDatePicker.getValue(), endDatePicker.getValue(),

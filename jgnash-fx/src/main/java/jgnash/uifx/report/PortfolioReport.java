@@ -25,7 +25,6 @@ import jgnash.engine.InvestmentPerformanceSummary;
 import jgnash.engine.SecurityNode;
 import jgnash.report.pdf.Report;
 import jgnash.report.table.AbstractReportTableModel;
-import jgnash.report.table.ColumnHeaderStyle;
 import jgnash.report.table.ColumnStyle;
 import jgnash.util.NotNull;
 
@@ -65,6 +64,8 @@ public class PortfolioReport extends Report {
 
     private static class PortfolioReportTableModel extends AbstractReportTableModel {
 
+        private final Account account;
+
         private final CurrencyNode baseCurrency;
 
         private InvestmentPerformanceSummary performanceSummary;
@@ -75,6 +76,7 @@ public class PortfolioReport extends Report {
             Objects.requireNonNull(account);
             Objects.requireNonNull(baseCurrency);
 
+            this.account = account;
             this.baseCurrency = baseCurrency;
             this.longNames = longNames;
 
@@ -85,6 +87,16 @@ public class PortfolioReport extends Report {
             } catch (final Exception e) {
                 Logger.getLogger(PortfolioReport.class.getName()).log(Level.SEVERE, null, e);
             }
+        }
+
+        @Override
+        public String getTitle() {
+            return account.getName() + " - " + rb.getString("Title.PortfolioReport");
+        }
+
+        @Override
+        public String getSubTitle() {
+            return DateTimeFormatter.ofLocalizedDate(FormatStyle.LONG).format(LocalDate.now());
         }
 
         @Override
@@ -183,7 +195,7 @@ public class PortfolioReport extends Report {
         }
 
         @Override
-        public CurrencyNode getCurrency() {
+        public CurrencyNode getCurrencyNode() {
             return baseCurrency;
         }
 
@@ -211,14 +223,6 @@ public class PortfolioReport extends Report {
                 default:
                     return ColumnStyle.STRING;
             }
-        }
-
-        @Override
-        public ColumnHeaderStyle getColumnHeaderStyle(final int columnIndex) {
-            if (columnIndex == 0) { // security column
-                return ColumnHeaderStyle.LEFT;
-            }
-            return ColumnHeaderStyle.RIGHT;
         }
 
         @Override

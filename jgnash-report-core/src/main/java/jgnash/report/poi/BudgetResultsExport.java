@@ -15,7 +15,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package jgnash.engine.budget;
+package jgnash.report.poi;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -32,18 +32,18 @@ import java.util.logging.Logger;
 import jgnash.engine.Account;
 import jgnash.engine.AccountGroup;
 import jgnash.engine.Comparators;
+import jgnash.engine.budget.BudgetPeriodResults;
+import jgnash.engine.budget.BudgetResultsModel;
+import jgnash.resource.util.ResourceUtils;
 import jgnash.text.NumericFormats;
 import jgnash.util.FileUtils;
-import jgnash.resource.util.ResourceUtils;
 
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
-import org.apache.poi.ss.usermodel.BorderStyle;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.CellType;
 import org.apache.poi.ss.usermodel.CreationHelper;
 import org.apache.poi.ss.usermodel.DataFormat;
-import org.apache.poi.ss.usermodel.FillPatternType;
 import org.apache.poi.ss.usermodel.Font;
 import org.apache.poi.ss.usermodel.FormulaEvaluator;
 import org.apache.poi.ss.usermodel.HorizontalAlignment;
@@ -87,36 +87,27 @@ public class BudgetResultsExport {
             // create a new sheet
             final Sheet s = wb.createSheet(model.getBudget().getName());
 
-            // create header cell styles
-            final CellStyle headerStyle = wb.createCellStyle();
-
-            // create 2 fonts objects
-            final Font amountFont = wb.createFont();
-            final Font headerFont = wb.createFont();
-
-            amountFont.setFontHeightInPoints((short) 10);
-            amountFont.setColor(IndexedColors.BLACK.getIndex());
-
-            headerFont.setFontHeightInPoints((short) 11);
-            headerFont.setColor(IndexedColors.BLACK.getIndex());
-            headerFont.setBold(true);
+            // create header cell styles, override the defaults
+            final CellStyle headerStyle = StyleFactory.createHeaderStyle(wb);
+            headerStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
+            final Font headerFont = StyleFactory.createHeaderFont(wb);
+            headerFont.setColor(IndexedColors.BLACK.index);
+            headerStyle.setFont(headerFont);
 
             // Set the other cell style and formatting
-            headerStyle.setBorderBottom(BorderStyle.THIN);
-            headerStyle.setBorderTop(BorderStyle.THIN);
-            headerStyle.setBorderLeft(BorderStyle.THIN);
-            headerStyle.setBorderRight(BorderStyle.THIN);
-            headerStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
-            headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
-
-            DataFormat df_header = wb.createDataFormat();
-
+            final DataFormat df_header = wb.createDataFormat();
             headerStyle.setDataFormat(df_header.getFormat("text"));
-            headerStyle.setFont(headerFont);
-            headerStyle.setAlignment(HorizontalAlignment.CENTER);
+
+            // create fonts objects
+            final Font amountFont = StyleFactory.createDefaultFont(wb);
 
             int row = 0;
             Row r = s.createRow(row);
+
+            // fill the corner
+            Cell corner = r.createCell(0);
+            corner.setCellStyle(headerStyle);
+
 
             // create period headers
             for (int i = 0; i < model.getDescriptorList().size(); i++) {
@@ -164,15 +155,7 @@ public class BudgetResultsExport {
 
             // create account rows
             for (final Account account : accounts) {
-
-                final DataFormat df = wb.createDataFormat();
-
-                final DecimalFormat format = (DecimalFormat) NumericFormats.getFullCommodityFormat(account.getCurrencyNode());
-                final String pattern = format.toLocalizedPattern().replace("¤", account.getCurrencyNode().getPrefix());
-                final CellStyle amountStyle = wb.createCellStyle();
-
-                amountStyle.setFont(amountFont);
-                amountStyle.setDataFormat(df.getFormat(pattern));
+                final CellStyle amountStyle = StyleFactory.createDefaultAmountStyle(wb, account.getCurrencyNode());
 
                 // Sets cell indentation, only impacts display if users changes the cell formatting to be left aligned.
                 amountStyle.setIndention((short) (model.getDepth(account) * 2));
@@ -232,14 +215,11 @@ public class BudgetResultsExport {
             for (final AccountGroup group : model.getAccountGroupList()) {
                 final DataFormat df = wb.createDataFormat();
 
-                final CellStyle amountStyle = wb.createCellStyle();
-                amountStyle.setFont(amountFont);
+                // reuse the header style but align right
+                final CellStyle amountStyle = StyleFactory.createHeaderStyle(wb);
                 amountStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
-                amountStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
-                amountStyle.setBorderBottom(BorderStyle.THIN);
-                amountStyle.setBorderTop(BorderStyle.THIN);
-                amountStyle.setBorderLeft(BorderStyle.THIN);
-                amountStyle.setBorderRight(BorderStyle.THIN);
+                amountStyle.setAlignment(HorizontalAlignment.RIGHT);
+                amountStyle.setFont(amountFont);
 
                 final DecimalFormat format = (DecimalFormat) NumericFormats.getFullCommodityFormat(model.getBaseCurrency());
                 final String pattern = format.toLocalizedPattern().replace("¤", model.getBaseCurrency().getPrefix());

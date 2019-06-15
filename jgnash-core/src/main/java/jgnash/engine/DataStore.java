@@ -82,11 +82,11 @@ public interface DataStore {
     DataStoreType getType();
 
     /**
-     * Remote connection indicator.
+     * Local / Remote connection indicator.
      * 
-     * @return true if connected to a remote server
+     * @return false if connected to a remote server
      */
-    boolean isRemote();
+    boolean isLocal();
 
     /**
      * Saves a Collection of StoredObjects to a file other than what is currently open.
@@ -103,7 +103,7 @@ public interface DataStore {
      *
      * @param fileName name of the datastore to rename
      * @param newFileName the new filename
-     * @throws java.io.IOException
+     * @throws java.io.IOException if an I/O error occurs
      */
     default void rename(final String fileName, final String newFileName) throws IOException {
         final Path path = Paths.get(fileName);

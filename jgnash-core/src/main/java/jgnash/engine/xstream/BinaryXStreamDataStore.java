@@ -88,11 +88,11 @@ public class BinaryXStreamDataStore implements DataStore {
     /**
      * {@code XMLDataStore} will always return false.
      *
-     * @see jgnash.engine.DataStore#isRemote()
+     * @see jgnash.engine.DataStore#isLocal()
      */
     @Override
-    public boolean isRemote() {
-        return false;
+    public boolean isLocal() {
+        return true;
     }
 
     /**
@@ -171,9 +171,9 @@ public class BinaryXStreamDataStore implements DataStore {
                 List<Config> list = container.query(Config.class);
 
                 if (list.size() == 1) {
-                    fileVersion = Float.valueOf(list.get(0).getFileFormat());
+                    fileVersion = Float.parseFloat(list.get(0).getFileFormat());
                 } else {
-                    fileVersion = Float.valueOf(list.get(0).getFileFormat());
+                    fileVersion = Float.parseFloat(list.get(0).getFileFormat());
                     logger.severe("A duplicate config object was found");
                 }
             } finally {

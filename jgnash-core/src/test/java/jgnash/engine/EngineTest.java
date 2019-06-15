@@ -25,7 +25,6 @@ import jgnash.time.Period;
 import jgnash.util.FileUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -98,7 +97,7 @@ public abstract class EngineTest {
         // check for correct file version
         final float version = EngineFactory.getFileVersion(Paths.get(testFile), EngineFactory.EMPTY_PASSWORD);
         final Config config = new Config();
-        assertEquals(Float.valueOf(config.getFileFormat()), version, .0001);
+        assertEquals(Float.parseFloat(config.getFileFormat()), version, .0001);
 
         // reopen the file for more tests
         e = EngineFactory.bootLocalEngine(testFile, EngineFactory.DEFAULT, EngineFactory.EMPTY_PASSWORD);
@@ -125,17 +124,19 @@ public abstract class EngineTest {
     }
 
     @Test
-    void testReminders() {
+    void testReminders() throws CloneNotSupportedException {
 
         assertEquals(0, e.getReminders().size());
-
         assertEquals(0, e.getPendingReminders().size());
 
         Reminder r = new DailyReminder();
+
         r.setIncrement(1);
         r.setEndDate(null);
+        assertFalse(e.addReminder(r));  // should fail because description is not set
 
-        assertTrue(e.addReminder(r));
+        r.setDescription("test");
+        assertTrue(e.addReminder(r));   // should pass now
 
         assertEquals(1, e.getReminders().size());
         assertEquals(1, e.getPendingReminders().size());
@@ -144,6 +145,15 @@ public abstract class EngineTest {
         closeEngine();
         e = EngineFactory.bootLocalEngine(testFile, EngineFactory.DEFAULT, EngineFactory.EMPTY_PASSWORD);
         assertEquals(e.getReminders().size(), 1);
+
+        // Clone reminders
+        r = e.getReminders().get(0);
+        assertNotNull(r);
+        Reminder clone = (Reminder)r.clone();
+        assertNotNull(clone);
+
+        assertNotEquals(clone, r);
+        assertNotEquals(0, clone.compareTo(r));
 
         // remove a reminder
         e.removeReminder(e.getReminders().get(0));
@@ -274,18 +284,6 @@ public abstract class EngineTest {
 
         assertTrue(e.updateAccountSecurities(a, Collections.emptyList()));
         assertEquals(0, a.getSecurities().size());
-    }
-
-    @Disabled
-    @Test
-    void testGetMarketPrice() {
-        fail("Not yet implemented");
-    }
-
-    @Disabled
-    @Test
-    void testGetBaseCurrencies() {
-        fail("Not yet implemented");
     }
 
     @Test
@@ -592,22 +590,72 @@ public abstract class EngineTest {
         assertEquals(defaultCurrency.getSymbol(), "USD");
     }
 
-    @Disabled
     @Test
     void testRemoveExchangeRateHistory() {
-        fail("Not yet implemented");
+
+        final LocalDate testDate = LocalDate.now().minusYears(2);
+
+        CurrencyNode usdCurrency = e.getDefaultCurrency();
+        assertEquals(usdCurrency.getSymbol(), "USD");
+
+        CurrencyNode cadCurrency = e.getCurrency("CAD");
+        assertEquals(cadCurrency.getSymbol(), "CAD");
+
+        e.setExchangeRate(usdCurrency, cadCurrency, new BigDecimal("0.5"), testDate);
+
+        ExchangeRate exchangeRate = e.getExchangeRate(usdCurrency, cadCurrency);
+        assertNotNull(exchangeRate);
+
+        closeEngine();
+        e = EngineFactory.bootLocalEngine(testFile, EngineFactory.DEFAULT, EngineFactory.EMPTY_PASSWORD);
+        usdCurrency = e.getDefaultCurrency();
+        cadCurrency = e.getCurrency("CAD");
+        exchangeRate = e.getExchangeRate(usdCurrency, cadCurrency);
+        assertNotNull(exchangeRate);
+
+        ExchangeRateHistoryNode historyNode = exchangeRate.getHistory(testDate);
+        assertNotNull(historyNode);
+
+        e.removeExchangeRateHistory(exchangeRate, historyNode);
+        historyNode = exchangeRate.getHistory(testDate);
+        assertNull(historyNode);
+
+        closeEngine();
+        e = EngineFactory.bootLocalEngine(testFile, EngineFactory.DEFAULT, EngineFactory.EMPTY_PASSWORD);
+        usdCurrency = e.getDefaultCurrency();
+        cadCurrency = e.getCurrency("CAD");
+        exchangeRate = e.getExchangeRate(usdCurrency, cadCurrency);
+        assertNotNull(exchangeRate);
+        historyNode = exchangeRate.getHistory(testDate);
+        assertNull(historyNode);
     }
 
-    @Disabled
     @Test
-    void testUpdateCommodity() {
-        fail("Not yet implemented");
-    }
+    void testUpdateCommodity() throws CloneNotSupportedException {
+        CurrencyNode testNode = DefaultCurrencies.buildCustomNode("CAD");
+        assertNotNull(testNode);
+        e.addCurrency(testNode);
 
-    @Disabled
-    @Test
-    void testUpdateReminder() {
-        fail("Not yet implemented");
+        // close and reopen to force check for persistence
+        closeEngine();
+        e = EngineFactory.bootLocalEngine(testFile, EngineFactory.DEFAULT, EngineFactory.EMPTY_PASSWORD);
+        testNode = e.getCurrency("CAD");
+        assertNotNull(testNode);
+
+        final CurrencyNode clone = (CurrencyNode)testNode.clone();
+        clone.setDescription("changed");
+        e.updateCommodity(testNode, clone);
+
+        testNode = e.getCurrency("CAD");
+        assertNotNull(testNode);
+
+        assertEquals("changed", testNode.getDescription());
+
+        closeEngine();
+        e = EngineFactory.bootLocalEngine(testFile, EngineFactory.DEFAULT, EngineFactory.EMPTY_PASSWORD);
+        testNode = e.getCurrency("CAD");
+        assertNotNull(testNode);
+        assertEquals("changed", testNode.getDescription());
     }
 
     @Test
@@ -980,7 +1028,7 @@ public abstract class EngineTest {
             EngineFactory.closeEngine(EngineFactory.DEFAULT);
 
             final float version = EngineFactory.getFileVersion(Paths.get(testFile), EngineFactory.EMPTY_PASSWORD);
-            final float engineVersion = Float.valueOf(Engine.CURRENT_MAJOR_VERSION + "." + Engine.CURRENT_MINOR_VERSION);
+            final float engineVersion = Float.parseFloat(Engine.CURRENT_MAJOR_VERSION + "." + Engine.CURRENT_MINOR_VERSION);
 
             assertEquals(version, engineVersion, DELTA);
         } catch (final Exception e) {

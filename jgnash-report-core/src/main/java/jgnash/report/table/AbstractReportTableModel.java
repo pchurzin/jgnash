@@ -19,12 +19,12 @@ package jgnash.report.table;
 
 import jgnash.engine.CurrencyNode;
 import jgnash.engine.MathConstants;
+import jgnash.resource.util.ResourceUtils;
 import jgnash.text.NumericFormats;
 import jgnash.time.DateUtils;
 import jgnash.util.LogUtil;
 import jgnash.util.NotNull;
-
-import javax.swing.table.AbstractTableModel;
+import jgnash.util.Nullable;
 
 import java.math.BigDecimal;
 import java.text.NumberFormat;
@@ -35,29 +35,88 @@ import java.util.HashMap;
 
 /**
  * Base Report model class
- *
+ * <p>
  * The report must contain a minimum of one group defined by {@code ColumnStyle.GROUP_NO_HEADER} or
- * {@code ColumnStyle.GROUP}.  If a is not defined/assigned, all rows will be grouped together.
- *
- * TODO, convert to extend a report specific interface
+ * {@code ColumnStyle.GROUP}.  If a group is not defined/assigned, all rows will be grouped together.
  *
  * @author Craig Cavanaugh
  */
-public abstract class AbstractReportTableModel extends AbstractTableModel {
+public abstract class AbstractReportTableModel {
 
     /**
      * Default group for unassigned rows.
      */
-    public static final String DEFAULT_GROUP = "_default_";
+    static final String DEFAULT_GROUP = "_default_";
 
-    public abstract CurrencyNode getCurrency();
+    public abstract CurrencyNode getCurrencyNode();
 
+    /**
+     * Returns the formatting style for the values in the column.
+     *
+     * @param columnIndex the index of the column
+     * @return the common {@code ColumnStyle} of the object values for the column
+     */
     public abstract ColumnStyle getColumnStyle(int columnIndex);
 
-    // TODO: Use or remove
-    public abstract ColumnHeaderStyle getColumnHeaderStyle(int columnIndex);
+    /**
+     * Returns the column class for the values in the column.
+     *
+     * @param columnIndex the index of the column
+     * @return the common  class of the object values in the model.
+     */
+    public abstract Class<?> getColumnClass(int columnIndex);
 
-    /** Return true if the column should be fixed width
+    /**
+     * Returns the column count in the model.
+     *
+     * @return the number of columns in the model
+     * @see #getRowCount
+     */
+    public abstract int getColumnCount();
+
+    /**
+     * Returns column name at {@code columnIndex}.
+     *
+     * @param columnIndex the index of the column
+     * @return the name of the column
+     */
+    public abstract String getColumnName(int columnIndex);
+
+    /**
+     * Returns the row count in the model.
+     *
+     * @return the number of rows in the model
+     * @see #getColumnCount
+     */
+    public abstract int getRowCount();
+
+    /**
+     * Returns the value at {@code columnIndex} and {@code rowIndex}.
+     *
+     * @param rowIndex    the row whose value is to be queried
+     * @param columnIndex the column whose value is to be queried
+     * @return the value Object at the specified cell
+     */
+    public abstract Object getValueAt(int rowIndex, int columnIndex);
+
+    /**
+     * Returns the title for the Report
+     *
+     * @return the report title
+     */
+    @NotNull
+    public abstract String getTitle();
+
+    /**
+     * Returns the subtitle for the Report
+     *
+     * @return the report title
+     */
+    @Nullable
+    public abstract String getSubTitle();
+
+    /**
+     * Return true if the column should be fixed width
      *
      * @param columnIndex column to verify
      * @return true if fixed width
@@ -130,8 +189,27 @@ public abstract class AbstractReportTableModel extends AbstractTableModel {
      */
     public boolean isColumnSummed(final int columnIndex) {
         return getColumnStyle(columnIndex) == ColumnStyle.BALANCE_WITH_SUM ||
-                getColumnStyle(columnIndex) == ColumnStyle.BALANCE_WITH_SUM_AND_GLOBAL
-                || getColumnStyle(columnIndex) == ColumnStyle.AMOUNT_SUM;
+                       getColumnStyle(columnIndex) == ColumnStyle.BALANCE_WITH_SUM_AND_GLOBAL
+                       || getColumnStyle(columnIndex) == ColumnStyle.AMOUNT_SUM;
+    }
+
+    /**
+     * Returns the column count in the model.
+     *
+     * @return the number of columns in the model
+     * @see #getColumnCount
+     */
+    public int getVisibleColumnCount() {
+
+        int count = 0;
+
+        for (int i = 0; i < getColumnCount(); i++) {
+            if (isColumnVisible(i)) {
+                count++;
+            }
+        }
+
+        return count;
     }
 
     private boolean isColumnGloballySummed(final int columnIndex) {
@@ -165,6 +243,24 @@ public abstract class AbstractReportTableModel extends AbstractTableModel {
     }
 
     /**
+     * Returns the legend for the grand total
+     *
+     * @return report name
+     */
+    public String getGrandTotalLegend() {
+        return ResourceUtils.getString("Word.Total");
+    }
+
+    /**
+     * Returns the general label for the group footer
+     *
+     * @return footer label
+     */
+    public String getGroupFooterLabel() {
+        return ResourceUtils.getString("Word.Subtotal");
+    }
+
+    /**
      * Returns the longest value for the specified column
      *
      * @param columnIndex column to check
@@ -195,7 +291,7 @@ public abstract class AbstractReportTableModel extends AbstractTableModel {
                     nf = NumericFormats.getPercentageFormat();
                     break;
                 default:
-                    nf = NumericFormats.getFullCommodityFormat(getCurrency());
+                    nf = NumericFormats.getFullCommodityFormat(getCurrencyNode());
                     break;
             }
 

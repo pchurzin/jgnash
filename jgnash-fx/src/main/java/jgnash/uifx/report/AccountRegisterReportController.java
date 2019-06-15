@@ -152,19 +152,20 @@ public class AccountRegisterReportController implements ReportController {
     }
 
     private void addTable() {
-        AbstractReportTableModel model = createReportModel();
+        final AbstractReportTableModel model = createReportModel();
 
         report.clearReport();
 
         try {
-            report.addTable(model, accountComboBox.getValue().getName());
+            report.addTable(model);
             report.addFooter();
         } catch (final IOException e) {
             e.printStackTrace();
         }
     }
 
-    private AbstractReportTableModel createReportModel() {
+    @Override
+    public AbstractReportTableModel createReportModel() {
         final Account account = accountComboBox.getValue();
 
         // disable the payee filter if an investment account is selected

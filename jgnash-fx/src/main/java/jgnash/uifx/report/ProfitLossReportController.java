@@ -160,17 +160,19 @@ public class ProfitLossReportController implements ReportController {
         AbstractReportTableModel model = createReportModel();
 
         report.clearReport();
+        report.setTitle(ResourceUtils.getString("Title.ProfitLoss"));
 
 
         try {
-            report.addTable(model, ResourceUtils.getString("Title.ProfitLoss"));
+            report.addTable(model);
             report.addFooter();
         } catch (final IOException e) {
             e.printStackTrace();
         }
     }
 
-    private AbstractReportTableModel createReportModel() {
+    @Override
+    public AbstractReportTableModel createReportModel() {
         report.setAddPercentileColumn(showAccountPercentages.isSelected());
 
         report.setSortOrder(sortOrderComboBox.getValue());

@@ -88,11 +88,11 @@ public class XMLDataStore implements DataStore {
     /**
      * {@code XMLDataStore} will always return false.
      *
-     * @see DataStore#isRemote()
+     * @see DataStore#isLocal()
      */
     @Override
-    public boolean isRemote() {
-        return false;
+    public boolean isLocal() {
+        return true;
     }
 
     /**
@@ -169,9 +169,9 @@ public class XMLDataStore implements DataStore {
                 List<Config> list = container.query(Config.class);
 
                 if (list.size() == 1) {
-                    fileVersion = Float.valueOf(list.get(0).getFileFormat());
+                    fileVersion = Float.parseFloat(list.get(0).getFileFormat());
                 } else {
-                    fileVersion = Float.valueOf(list.get(0).getFileFormat());
+                    fileVersion = Float.parseFloat(list.get(0).getFileFormat());
                     Logger.getLogger(XMLDataStore.class.getName()).severe("A duplicate config object was found");
                 }
             } finally {

@@ -17,27 +17,8 @@
  */
 package jgnash;
 
-import jgnash.engine.CurrencyNode;
-import jgnash.engine.DefaultCurrencies;
-import jgnash.report.pdf.Report;
-import jgnash.report.table.AbstractReportTableModel;
-import jgnash.report.table.ColumnHeaderStyle;
-import jgnash.report.table.ColumnStyle;
-import jgnash.report.ui.ReportPrintFactory;
-import jgnash.resource.util.ResourceUtils;
-import jgnash.util.NotNull;
-import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.pdmodel.PDPage;
-import org.apache.pdfbox.pdmodel.PDPageContentStream;
-import org.apache.pdfbox.pdmodel.font.PDFont;
-import org.apache.pdfbox.pdmodel.font.PDType1Font;
-import org.apache.pdfbox.tools.imageio.ImageIOUtil;
-
-import org.junit.jupiter.api.Test;
-
 import java.awt.image.BufferedImage;
 import java.awt.print.PageFormat;
-
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.file.Files;
@@ -46,7 +27,26 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ResourceBundle;
 
-import static org.junit.jupiter.api.Assertions.*;
+import jgnash.engine.CurrencyNode;
+import jgnash.engine.DefaultCurrencies;
+import jgnash.report.pdf.Report;
+import jgnash.report.table.AbstractReportTableModel;
+import jgnash.report.table.ColumnStyle;
+import jgnash.report.table.GroupInfo;
+import jgnash.report.ui.ReportPrintFactory;
+import jgnash.resource.util.ResourceUtils;
+import jgnash.util.NotNull;
+
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.PDPageContentStream;
+import org.apache.pdfbox.pdmodel.font.PDFont;
+import org.apache.pdfbox.pdmodel.font.PDType1Font;
+import org.apache.pdfbox.tools.imageio.ImageIOUtil;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PDFBoxTableTest {
 
@@ -82,7 +82,7 @@ class PDFBoxTableTest {
         }
     }
 
-    private class SimpleReport extends Report {
+    private static class SimpleReport extends Report {
 
     }
 
@@ -110,10 +110,10 @@ class PDFBoxTableTest {
             report.setFooterFont(PDType1Font.TIMES_ITALIC);
             report.setEllipsis("…");
 
-            assertEquals(1, Report.getGroups(new BasicTestReport()).size());
-            assertEquals(80, ((Report.GroupInfo) Report.getGroups(new BasicTestReport()).toArray()[0]).rows);
+            assertEquals(1, GroupInfo.getGroups(new BasicTestReport()).size());
+            //assertEquals(80, ((GroupInfo) GroupInfo.getGroups(new BasicTestReport()).toArray()[0]).rows);
 
-            report.addTable(new BasicTestReport(), "Test Report");
+            report.addTable(new BasicTestReport());
             report.addFooter();
 
             report.saveToFile(tempPath);
@@ -167,10 +167,10 @@ class PDFBoxTableTest {
             report.setFooterFont(PDType1Font.TIMES_ITALIC);
             report.setEllipsis("…");
 
-            assertEquals(2, Report.getGroups(new CrossTabTestReport()).size());
-            assertEquals(40, ((Report.GroupInfo) Report.getGroups(new CrossTabTestReport()).toArray()[0]).rows);
+            assertEquals(2, GroupInfo.getGroups(new CrossTabTestReport()).size());
+            //assertEquals(40, ((GroupInfo) GroupInfo.getGroups(new CrossTabTestReport()).toArray()[0]).rows);
 
-            report.addTable(new CrossTabTestReport(), "Test Report");
+            report.addTable(new CrossTabTestReport());
             report.addFooter();
 
             report.saveToFile(tempPath);
@@ -198,7 +198,7 @@ class PDFBoxTableTest {
         }
     }
 
-    private class BasicTestReport extends AbstractReportTableModel {
+    private static class BasicTestReport extends AbstractReportTableModel {
 
         private static final String COLUMN_DATE = "Column.Date";
         private static final String COLUMN_NUM = "Column.Num";
@@ -229,22 +229,13 @@ class PDFBoxTableTest {
         }
 
         @Override
-        public CurrencyNode getCurrency() {
+        public CurrencyNode getCurrencyNode() {
             return currencyNode;
         }
 
         @Override
         public ColumnStyle getColumnStyle(int columnIndex) {
             return columnStyles[columnIndex];
-        }
-
-        @Override
-        public ColumnHeaderStyle getColumnHeaderStyle(int columnIndex) {
-            if (columnIndex < 6) {
-                return ColumnHeaderStyle.LEFT;
-            }
-
-            return ColumnHeaderStyle.RIGHT;
         }
 
         @Override
@@ -331,9 +322,19 @@ class PDFBoxTableTest {
             // return new int[] {1};   // hide the timestamp
             return new int[0];  // return an empty array by default
         }
+
+        @Override
+        public String getTitle() {
+            return "Test Report";
+        }
+
+        @Override
+        public String getSubTitle() {
+            return null;
+        }
     }
 
-    private class CrossTabTestReport extends AbstractReportTableModel {
+    private static class CrossTabTestReport extends AbstractReportTableModel {
 
         private static final String COLUMN_DATE = "Column.Date";
         private static final String COLUMN_NUM = "Column.Num";
@@ -365,22 +366,13 @@ class PDFBoxTableTest {
 
 
         @Override
-        public CurrencyNode getCurrency() {
+        public CurrencyNode getCurrencyNode() {
             return currencyNode;
         }
 
         @Override
         public ColumnStyle getColumnStyle(int columnIndex) {
             return columnStyles[columnIndex];
-        }
-
-        @Override
-        public ColumnHeaderStyle getColumnHeaderStyle(int columnIndex) {
-            if (columnIndex < 6) {
-                return ColumnHeaderStyle.LEFT;
-            }
-
-            return ColumnHeaderStyle.RIGHT;
         }
 
         @Override
@@ -474,6 +466,16 @@ class PDFBoxTableTest {
         public int[] getColumnsToHide() {
             // return new int[] {1};   // hide the timestamp
             return new int[0];  // return an empty array by default
+        }
+
+        @Override
+        public String getTitle() {
+            return "Test Report";
+        }
+
+        @Override
+        public String getSubTitle() {
+            return null;
         }
     }
 

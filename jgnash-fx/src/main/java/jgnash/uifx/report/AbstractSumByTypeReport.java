@@ -17,25 +17,6 @@
  */
 package jgnash.uifx.report;
 
-import jgnash.engine.Account;
-import jgnash.engine.AccountGroup;
-import jgnash.engine.AccountType;
-import jgnash.engine.Comparators;
-import jgnash.engine.CurrencyNode;
-import jgnash.engine.Engine;
-import jgnash.engine.EngineFactory;
-import jgnash.engine.MathConstants;
-import jgnash.report.pdf.Report;
-import jgnash.report.table.AbstractReportTableModel;
-import jgnash.report.table.ColumnHeaderStyle;
-import jgnash.report.table.ColumnStyle;
-import jgnash.report.table.Row;
-import jgnash.report.table.SortOrder;
-import jgnash.resource.util.ResourceUtils;
-import jgnash.time.DateUtils;
-import jgnash.time.Period;
-import jgnash.util.NotNull;
-
 import java.math.BigDecimal;
 import java.text.MessageFormat;
 import java.time.LocalDate;
@@ -50,6 +31,24 @@ import java.util.Objects;
 import java.util.ResourceBundle;
 import java.util.Set;
 import java.util.stream.Collectors;
+
+import jgnash.engine.Account;
+import jgnash.engine.AccountGroup;
+import jgnash.engine.AccountType;
+import jgnash.engine.Comparators;
+import jgnash.engine.CurrencyNode;
+import jgnash.engine.Engine;
+import jgnash.engine.EngineFactory;
+import jgnash.engine.MathConstants;
+import jgnash.report.pdf.Report;
+import jgnash.report.table.AbstractReportTableModel;
+import jgnash.report.table.ColumnStyle;
+import jgnash.report.table.Row;
+import jgnash.report.table.SortOrder;
+import jgnash.resource.util.ResourceUtils;
+import jgnash.time.DateUtils;
+import jgnash.time.Period;
+import jgnash.util.NotNull;
 
 /**
  * Abstract Report that groups and sums by {@code AccountGroup} and has a line for a global sum. and cross tabulates
@@ -78,7 +77,9 @@ public abstract class AbstractSumByTypeReport extends Report {
 
     private boolean addPercentileColumn = false;
 
-    private String subTitle = "";
+    private String subTitle = "subtitle";
+
+    private String title = "";
 
     private boolean showFullAccountPath = false;
 
@@ -111,6 +112,10 @@ public abstract class AbstractSumByTypeReport extends Report {
         this.sortOrder = sortOrder;
     }
 
+    public void setTitle(String title) {
+        this.title = title;
+    }
+
     ReportModel createReportModel(final LocalDate startDate, final LocalDate endDate,
                                   final boolean hideZeroBalanceAccounts) {
 
@@ -118,6 +123,10 @@ public abstract class AbstractSumByTypeReport extends Report {
 
         final Engine engine = EngineFactory.getEngine(EngineFactory.DEFAULT);
         Objects.requireNonNull(engine);
+
+        // update the subtitle
+        final MessageFormat format = new MessageFormat(rb.getString("Pattern.DateRange"));
+        subTitle = format.format(new Object[]{DateUtils.asDate(startDate), DateUtils.asDate(endDate)});
 
         // generate the required date and label arrays
         updateResolution(startDate, endDate);
@@ -216,10 +225,7 @@ public abstract class AbstractSumByTypeReport extends Report {
     private void updateResolution(final LocalDate startDate, final LocalDate endDate) {
 
         final DateTimeFormatter dateFormat = DateUtils.getShortDateFormatter();
-        final MessageFormat format = new MessageFormat(rb.getString("Pattern.DateRange"));
 
-        // update the subtitle
-        subTitle = format.format(new Object[]{DateUtils.asDate(startDate), DateUtils.asDate(endDate)});
 
         startDates.clear();
         endDates.clear();
@@ -316,6 +322,35 @@ public abstract class AbstractSumByTypeReport extends Report {
             this.baseCurrency = currency;
         }
 
+        @Override
+        public String getTitle() {
+            return AbstractSumByTypeReport.this.title;
+        }
+
+        @Override
+        public String getSubTitle() {
+            return AbstractSumByTypeReport.this.subTitle;
+        }
+
+        /**
+         * Returns the legend for the grand total
+         *
+         * @return report name
+         */
+        @Override
+        public String getGrandTotalLegend() {
+            return AbstractSumByTypeReport.this.getGrandTotalLegend();
+        }
+
+        /**
+         * Returns the general label for the group footer
+         *
+         * @return footer label
+         */
+        public String getGroupFooterLabel() {
+            return AbstractSumByTypeReport.this.getGroupFooterLabel();
+        }
+
         void addAccounts(final Collection<Account> accounts) {
             accounts.forEach(this::addAccount);
         }
@@ -367,7 +402,7 @@ public abstract class AbstractSumByTypeReport extends Report {
         }
 
         @Override
-        public CurrencyNode getCurrency() {
+        public CurrencyNode getCurrencyNode() {
             return baseCurrency;
         }
 
@@ -413,16 +448,6 @@ public abstract class AbstractSumByTypeReport extends Report {
                 return ColumnStyle.GROUP;
             }
             return ColumnStyle.BALANCE_WITH_SUM_AND_GLOBAL;
-        }
-
-        @Override
-        public ColumnHeaderStyle getColumnHeaderStyle(final int columnIndex) {
-            if (columnIndex == 0) { // accounts column
-                return ColumnHeaderStyle.LEFT;
-            } else if (columnIndex == getColumnCount() - 1) { // group column
-                return ColumnHeaderStyle.CENTER;
-            }
-            return ColumnHeaderStyle.RIGHT;
         }
 
         private boolean isPercentileColumn(final int columnIndex) {
@@ -471,11 +496,11 @@ public abstract class AbstractSumByTypeReport extends Report {
                     return getValue().getAccountType().getAccountGroup().toString();
                 } else if (columnIndex > 0 && columnIndex <= startDates.size()) {
                     if (runningTotal) {
-                        return getValue().getBalance(endDates.get(columnIndex - 1), getCurrency());
+                        return getValue().getBalance(endDates.get(columnIndex - 1), getCurrencyNode());
                     }
 
                     return getValue().getBalance(startDates.get(columnIndex - 1), endDates.get(columnIndex - 1),
-                            getCurrency()).negate();
+                            getCurrencyNode()).negate();
                 }
 
                 return null;
