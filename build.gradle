@@ -3,30 +3,26 @@ plugins {
 }
 
 allprojects {
+    apply plugin: "java"
 
-    // jgnash-help is not a compiled sub-project
-    if (!it.name.startsWith("jgnash-help")) {
-        apply plugin: "java"
-    }
-    
     sourceCompatibility = 11
     targetCompatibility = 11
 
     group = "jgnash"
-    version = "3.2.0"
+    version = "3.2.1"
 
     project.ext {
-        junitVersion = "5.4.2"              // https://junit.org/junit5/
+        junitVersion = "5.5.1"              // https://junit.org/junit5/
         junitextensionsVersion = "2.3.0"    // https://github.com/glytching/junit-extensions
         awaitilityVersion = "3.1.6"         // https://github.com/awaitility/awaitility
 
-        picocliVersion = "3.9.5"            // https://github.com/remkop/picocli
+        picocliVersion = "4.0.1"            // https://github.com/remkop/picocli
 
         apachePoiVersion = "4.1.0"          // https://poi.apache.org/
-        commonsCsvVersion = "1.6"           // https://commons.apache.org/proper/commons-csv/
-        commonsCollectionsVersion = "4.3"   // https://commons.apache.org/proper/commons-collections/
-        commonsTextVersion = "1.6"          // https://commons.apache.org/proper/commons-text/
-        commonsLangVersion = "3.8.1"        // https://commons.apache.org/proper/commons-lang/
+        commonsCsvVersion = "1.7"           // https://commons.apache.org/proper/commons-csv/
+        commonsCollectionsVersion = "4.4"   // https://commons.apache.org/proper/commons-collections/
+        commonsTextVersion = "1.7"          // https://commons.apache.org/proper/commons-text/
+        commonsLangVersion = "3.9"          // https://commons.apache.org/proper/commons-lang/
 
         h2Version = "1.4.199"               // http://www.h2database.com/html/main.html
         hsqldbVersion = "2.4.1"             // http://hsqldb.org/
@@ -35,10 +31,10 @@ allprojects {
 
         hibernateVersion = "5.4.3.Final"    // http://hibernate.org/orm/
         hikariVersion = "3.3.1"             // https://github.com/brettwooldridge/HikariCP
-        
-        pdfBoxVersion = "2.0.15"            // https://pdfbox.apache.org/
 
-        nettyVersion = "4.1.36.Final"       // https://netty.io/index.html
+        pdfBoxVersion = "2.0.16"            // https://pdfbox.apache.org/
+
+        nettyVersion = "4.1.38.Final"       // https://netty.io/index.html
 
         slf4jVersion = "1.8.0-beta4"        // https://www.slf4j.org/news.html
 
@@ -51,21 +47,16 @@ subprojects {
         mavenCentral()
         jcenter()
         mavenLocal()
-        maven { url "http://jaspersoft.jfrog.io/jaspersoft/third-party-ce-artifacts/" }
     }
 
-    // jgnash-help is not a compiled sub-project
-    if (!it.name.startsWith("jgnash-help")) {
-        dependencies {
+    dependencies {
+        testCompile group: "org.junit.jupiter", name: "junit-jupiter-api", version: junitVersion
+        testCompile group: "org.junit.jupiter", name: "junit-jupiter-params", version: junitVersion
+        testRuntime group: "org.junit.jupiter", name: "junit-jupiter-engine", version: junitVersion
 
-            testCompile group: "org.junit.jupiter", name: "junit-jupiter-api", version: junitVersion
-            testCompile group: "org.junit.jupiter", name: "junit-jupiter-params", version: junitVersion
-            testRuntime group: "org.junit.jupiter", name: "junit-jupiter-engine", version: junitVersion
-
-            testCompile group: "io.github.glytching", name: "junit-extensions", version: junitextensionsVersion
-            testCompile group: "org.awaitility", name: "awaitility", version: awaitilityVersion
-            testCompile group: "org.apache.commons", name: "commons-text", version: commonsTextVersion
-        }
+        testCompile group: "io.github.glytching", name: "junit-extensions", version: junitextensionsVersion
+        testCompile group: "org.awaitility", name: "awaitility", version: awaitilityVersion
+        testCompile group: "org.apache.commons", name: "commons-text", version: commonsTextVersion
     }
 
     test {
@@ -80,7 +71,7 @@ subprojects {
 }
 
 wrapper {
-    gradleVersion = "5.4.1"
+    gradleVersion = "5.5.1"
 }
 
 task distZip {

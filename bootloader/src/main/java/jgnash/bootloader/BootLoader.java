@@ -25,11 +25,13 @@ import javax.xml.bind.DatatypeConverter;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
@@ -61,10 +63,6 @@ public class BootLoader {
 
     private static final String OS = getOS();
 
-    private static final String LIB = "lib";
-
-    private static final String USER_DIR = "user.dir";
-
     public static final int FAILED_EXIT = -1;
 
     static final int REBOOT_EXIT = 100;
@@ -93,7 +91,16 @@ public class BootLoader {
     }
 
     private static String getLibPath() {
-        return Paths.get(Paths.get(System.getProperty(USER_DIR)).toString() + SEPARATOR + LIB).toString();
+        // Current class lives in a .jar that lives in the lib folder we want to populate.  Let's
+        // use that to find the lib path rather than depend on jGnash being invoked from the correct
+        // folder.
+        // https://stackoverflow.com/questions/320542/how-to-get-the-path-of-a-running-jar-file?noredirect=1&lq=1
+        try {
+            return new File(BootLoader.class.getProtectionDomain().getCodeSource().getLocation().toURI())
+                           .getParentFile().getPath();
+        } catch (final URISyntaxException e) {
+            throw new RuntimeException("Unable to determine lib path fpr bootloader");
+        }
     }
 
     public static String getOS() {
@@ -110,7 +117,7 @@ public class BootLoader {
         return null;
     }
 
-    public static boolean downloadFiles(Consumer<String> fileNameConsumer, IntConsumer percentCompleteConsumer) {
+    public static boolean downloadFiles(final Consumer<String> fileNameConsumer, final IntConsumer percentCompleteConsumer) {
         percentCompleteConsumer.accept(0);
         boolean result = true;
 

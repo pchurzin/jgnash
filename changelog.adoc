@@ -20,8 +20,29 @@
 * Add export function for the account tree balance/table.
 * Open zipped backups instead of manually unzipping.
 * Write and replace for bxds and xml files to protect against corruption if a crash occurs during a save.
+* Option to load a custom style sheet.
 
-== Release 3.2.x
+== Release 3.2.1
+* 07/30/2019 Reduced console messages about ignored use of font Layout tables when creating tabular reports.
+* 07/27/2019 Updated to the latest Commons Lang, Commons Text, Commons Collections, Commons CSV, Netty
+             and Picocli dependencies.
+* 07/23/2019 The Create / Modify Security form was not validating the reported Currency had been set.
+* 07/21/2019 Fixed a very old UI bug that would prevent table column width restoration for locales that use a comma
+             for a decimal separator.  It would also trigger unit test failures for the same locales.
+* 07/09/2019 Fixed an issue that was preventing the jGnash.exe file from detecting Java on some systems.
+* 07/09/2019 Improved bootloader behavior when determining "lib" location. (GitHub Issue #84) _[Raven Kopelman]_
+* 07/07/2019 Selected tabular rows may now be copied to the clipboard using CTRL-C.
+
+== Release 3.2.0
+* 07/05/2019 Fixed a bug that was preventing entry of investment transaction gains or losses without using the detailed
+             entry form and specifying a gains and loss account.
+* 07/05/2019 Fixed a bug that was causing backup files and database conversions to save in the wrong location or
+             fail completely if a period existed within the file name's path other than the file extension.
+* 07/05/2019 The style of selected odd rows of TreeTables were not consistent with even rows.
+* 06/30/2019 Updated to latest Netty and PDFBox dependencies.
+* 06/30/2019 The manual was missing from the distribution.
+* 06/30/2019 Converted the manual to Latex and moved to manual process to improve build performance.
+* 06/15/2019 Improved the speed of detecting a non converging IRR calculation.
 * 06/15/2019 Protect against Reminders without descriptions.
 * 06/14/2019 Tabular reports may now be exported to a spreadsheet.
 * 06/01/2019 Updated to the latest Hibernate dependency.

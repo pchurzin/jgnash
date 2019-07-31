@@ -1,5 +1,5 @@
 plugins {
-    id "edu.sc.seis.launch4j" version "2.4.5"
+    id "edu.sc.seis.launch4j" version "2.4.6"
     id "org.openjfx.javafxplugin" version "0.0.7"
 }
 
@@ -25,6 +25,7 @@ launch4j {
     dontWrapJar = true
     icon = "../../../jgnash-fx/gnome-money.ico"
     downloadUrl = "https://www.azul.com/downloads/zulu/"
+    bundledJrePath = "%JAVA_HOME%"  // work around for not being able to find installed jre, https://sourceforge.net/p/launch4j/bugs/197/
     jreMinVersion = "11"
 }
 
@@ -45,7 +46,7 @@ distributions {
     main {
         baseName = "jGnash"
         contents {
-            from { "../jgnash-help/build/asciidoc/pdf/Manual.pdf" }
+            from { "../jgnash-manual/src/Manual.pdf" }
             from { "../changelog.adoc" }
             from { "build/launch4j/jGnash.exe" }
             from { "../README.html" }
