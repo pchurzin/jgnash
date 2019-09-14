@@ -17,6 +17,8 @@
  */
 package jgnash.uifx.skin;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.prefs.Preferences;
@@ -34,6 +36,7 @@ import javafx.beans.value.ObservableValue;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.scene.Group;
+import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Menu;
@@ -44,8 +47,10 @@ import javafx.scene.paint.Color;
 import javafx.scene.paint.Paint;
 import javafx.scene.text.Text;
 
-import jgnash.util.NotNull;
 import jgnash.resource.util.OS;
+import jgnash.uifx.views.main.MainView;
+import jgnash.util.NotNull;
+import jgnash.util.Nullable;
 
 /**
  * Theme manager.
@@ -53,6 +58,13 @@ import jgnash.resource.util.OS;
  * @author Craig Cavanaugh
  */
 public class ThemeManager {
+
+    /**
+     * Default style sheet.
+     */
+    private static final String DEFAULT_CSS = "jgnash/skin/default.css";
+
+    private static final String USER_STYLE = "userStyle";
 
     private static final Preferences preferences;
 
@@ -197,6 +209,26 @@ public class ThemeManager {
         // Utility class
     }
 
+    public static void applyStyleSheets(final Scene scene) {
+        final String userTheme = preferences.get(USER_STYLE, null);
+
+        if (userTheme != null && !userTheme.isBlank()) {
+            scene.getStylesheets().addAll(ThemeManager.DEFAULT_CSS, userTheme);
+        } else {
+            scene.getStylesheets().addAll(ThemeManager.DEFAULT_CSS);
+        }
+    }
+
+    public static void applyStyleSheets(final Parent parent) {
+        final String userTheme = preferences.get(USER_STYLE, null);
+
+        if (userTheme != null && !userTheme.isBlank()) {
+            parent.getStylesheets().addAll(ThemeManager.DEFAULT_CSS, userTheme);
+        } else {
+            parent.getStylesheets().addAll(ThemeManager.DEFAULT_CSS);
+        }
+    }
+
     static Color getDefaultColor(final String theme, final byte colorIndex) {
         return Color.web(DEFAULT_COLORS[themeToIndex(theme)][colorIndex]);
     }
@@ -243,6 +275,30 @@ public class ThemeManager {
         Application.setUserAgentStylesheet(preferences.get(LAST, Application.STYLESHEET_MODENA));
 
         controlTextFill.setValue(getBaseTextColor());   // force an update after the stylesheet has been applied
+    }
+
+    public static boolean setUserStyle(@Nullable Path path) {
+
+        boolean result = false;
+
+        if (path != null && Files.exists(path)) {
+            final String newValue = "file:///" + path.toString().replace("\\", "/");
+
+            if (!preferences.get(USER_STYLE, "").equals(newValue)) {
+                preferences.put(USER_STYLE, "file:///" + path.toString().replace("\\", "/"));
+
+                applyStyleSheets(MainView.getPrimaryStage().getScene());    // apply style sheet
+
+                result = true;
+            }
+        } else {
+            if (preferences.get(USER_STYLE, null) != null) {
+                preferences.remove(USER_STYLE);
+                result = true;
+            }
+        }
+
+        return result;
     }
 
     public static ObservableValue<String> styleProperty() {

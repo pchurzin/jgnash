@@ -30,7 +30,6 @@ import javafx.scene.paint.Paint;
 import javafx.scene.text.Font;
 
 import jgnash.uifx.skin.ThemeManager;
-import jgnash.uifx.views.main.MainView;
 import jgnash.util.NotNull;
 
 /**
@@ -84,8 +83,6 @@ public class FontAwesomeLabel extends Label {
         } else {
             textFillProperty().bind(ThemeManager.controlTextFillProperty());
         }
-
-        getStylesheets().addAll(MainView.DEFAULT_CSS);
 
         setCache(true); // enable caching
     }

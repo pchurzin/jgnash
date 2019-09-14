@@ -1,5 +1,5 @@
 plugins {
-    id "com.github.ben-manes.versions" version "0.20.0"
+    id "com.github.ben-manes.versions"
 }
 
 allprojects {
@@ -12,16 +12,16 @@ allprojects {
     version = "3.2.2"
 
     project.ext {
-        junitVersion = "5.5.1"              // https://junit.org/junit5/
+        junitVersion = "5.5.2"              // https://junit.org/junit5/
         junitextensionsVersion = "2.3.0"    // https://github.com/glytching/junit-extensions
-        awaitilityVersion = "3.1.6"         // https://github.com/awaitility/awaitility
+        awaitilityVersion = "4.0.1"         // https://github.com/awaitility/awaitility
 
-        picocliVersion = "4.0.1"            // https://github.com/remkop/picocli
+        picocliVersion = "4.0.4"            // https://github.com/remkop/picocli
 
         apachePoiVersion = "4.1.0"          // https://poi.apache.org/
         commonsCsvVersion = "1.7"           // https://commons.apache.org/proper/commons-csv/
         commonsCollectionsVersion = "4.4"   // https://commons.apache.org/proper/commons-collections/
-        commonsTextVersion = "1.7"          // https://commons.apache.org/proper/commons-text/
+        commonsTextVersion = "1.8"          // https://commons.apache.org/proper/commons-text/
         commonsLangVersion = "3.9"          // https://commons.apache.org/proper/commons-lang/
 
         h2Version = "1.4.199"               // http://www.h2database.com/html/main.html
@@ -34,11 +34,11 @@ allprojects {
 
         pdfBoxVersion = "2.0.16"            // https://pdfbox.apache.org/
 
-        nettyVersion = "4.1.38.Final"       // https://netty.io/index.html
+        nettyVersion = "4.1.41.Final"       // https://netty.io/index.html
 
         slf4jVersion = "1.8.0-beta4"        // https://www.slf4j.org/news.html
 
-        javaFXVersion = "13-ea+11"
+        javaFXVersion = "13"
     }
 }
 
@@ -71,7 +71,7 @@ subprojects {
 }
 
 wrapper {
-    gradleVersion = "5.5.1"
+    gradleVersion = "5.6.2"
 }
 
 task distZip {

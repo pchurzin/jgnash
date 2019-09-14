@@ -37,7 +37,6 @@ import jgnash.engine.TransactionFactory;
 import jgnash.engine.xstream.BinaryXStreamDataStore;
 import jgnash.uifx.Options;
 import jgnash.uifx.control.AutoCompleteTextField;
-import jgnash.uifx.util.JavaFXUtils;
 
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.BeforeAll;
@@ -63,15 +62,15 @@ class AutoCompleteModelTest {
     static void setUp() throws TimeoutException {
         assertTrue(Files.isDirectory(tempDir));
 
-        if (Boolean.getBoolean("headless")) {
-            System.setProperty("java.awt.headless", "true");
-            System.setProperty("testfx.robot", "glass");
-            System.setProperty("testfx.headless", "true");
-            System.setProperty("prism.order", "sw");
-            System.setProperty("prism.text", "t2k");
-            System.setProperty("prism.verbose", "true");
+        // setup for a headless env
+        System.setProperty("java.awt.headless", "true");
+        System.setProperty("testfx.robot", "glass");
+        System.setProperty("testfx.headless", "true");
+        System.setProperty("prism.order", "sw");
+        System.setProperty("prism.text", "t2k");
+        System.setProperty("prism.verbose", "true");
 
-        }
+
         registerPrimaryStage();
     }
 
@@ -87,7 +86,7 @@ class AutoCompleteModelTest {
                     DataStoreType.BINARY_XSTREAM);
         } catch (final EngineException e) {
             fail("Fatal error occurred");
-            return  null;
+            return null;
         }
     }
 
@@ -120,15 +119,17 @@ class AutoCompleteModelTest {
         final AutoCompleteTextField<Transaction> autoCompleteMemoTextField = new AutoCompleteTextField<>();
         AutoCompleteFactory.setMemoModel(autoCompleteMemoTextField);
 
-        // Auto complete model loading is pushed to the end of the JavaFX thread.
-        // Block until the atomic has been set or the test will fail
-        final AtomicBoolean atomic = new AtomicBoolean(false);
-        JavaFXUtils.runLater(() -> atomic.set(true));
-        Awaitility.await().untilTrue(atomic);
-
         final AutoCompleteModel<Transaction> payeeModel = autoCompletePayeeTextField.autoCompleteModelObjectProperty().get();
         final AutoCompleteModel<Transaction> memoModel = autoCompleteMemoTextField.autoCompleteModelObjectProperty().get();
 
+        final AtomicBoolean payeeModelLoaded = payeeModel.isLoadComplete();
+        final AtomicBoolean memoModelLoaded = memoModel.isLoadComplete();
+
+        // Block until the atomics have been set or the test will fail
+        Awaitility.await().untilTrue(payeeModelLoaded);
+        Awaitility.await().untilTrue(memoModelLoaded);
+
+        //noinspection SpellCheckingInspection
         final String payeeResult = payeeModel.doLookAhead("Paye");
         final String memoResult = memoModel.doLookAhead("Me");
 

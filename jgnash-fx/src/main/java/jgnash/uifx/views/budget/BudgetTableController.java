@@ -90,7 +90,6 @@ import jgnash.uifx.skin.ThemeManager;
 import jgnash.uifx.util.FXMLUtils;
 import jgnash.uifx.util.JavaFXUtils;
 import jgnash.uifx.util.StageUtils;
-import jgnash.uifx.views.main.MainView;
 import jgnash.util.DefaultDaemonThreadFactory;
 import jgnash.util.NotNull;
 
@@ -260,7 +259,8 @@ public class BudgetTableController implements MessageListener {
     private void initialize() {
         runningTotalsButton.selectedProperty().setValue(preferences.getBoolean(RUNNING_TOTALS, false));
 
-        rateLimitExecutor = new ScheduledThreadPoolExecutor(1, new DefaultDaemonThreadFactory(),
+        rateLimitExecutor = new ScheduledThreadPoolExecutor(1,
+                new DefaultDaemonThreadFactory("Budget View Rate Limit Executor"),
                 new ThreadPoolExecutor.DiscardPolicy());
 
         tableWidthChangeListener = (observable, oldValue, newValue) -> {
@@ -275,20 +275,22 @@ public class BudgetTableController implements MessageListener {
                 LocalDate.now().getYear() - YEAR_MARGIN, LocalDate.now().getYear() + YEAR_MARGIN,
                 LocalDate.now().getYear(), 1));
 
-        accountTreeView.getStylesheets().addAll(StyleClass.HIDE_VERTICAL_CSS, StyleClass.HIDE_HORIZONTAL_CSS);
+        accountTreeView.getStylesheets().addAll(StyleClass.HIDE_HORIZONTAL_CSS, StyleClass.HIDE_VERTICAL_CSS);
         accountTreeView.setColumnResizePolicy(TreeTableView.CONSTRAINED_RESIZE_POLICY);
         accountTreeView.setShowRoot(false);
         accountTreeView.setEditable(true);
         accountTreeView.fixedCellSizeProperty().bind(rowHeight);
 
         accountSummaryTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
-        accountSummaryTable.getStylesheets().addAll(StyleClass.HIDE_VERTICAL_CSS, StyleClass.HIDE_HORIZONTAL_CSS, StyleClass.HIDE_TABLE_FOCUS);
+        accountSummaryTable.getStyleClass().addAll(StyleClass.HIDDEN_ROW_FOCUS);
+        accountSummaryTable.getStylesheets().addAll(StyleClass.HIDE_HORIZONTAL_CSS, StyleClass.HIDE_VERTICAL_CSS);
         accountSummaryTable.setItems(expandedAccountList);
         accountSummaryTable.fixedCellSizeProperty().bind(rowHeight);
         accountSummaryTable.setSelectionModel(new NullTableViewSelectionModel<>(accountSummaryTable));
 
         accountTypeTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
-        accountTypeTable.getStylesheets().addAll(StyleClass.HIDE_HEADER_CSS, StyleClass.HIDE_HORIZONTAL_CSS, StyleClass.HIDE_VERTICAL_CSS, StyleClass.HIDE_TABLE_FOCUS);
+        accountTypeTable.getStyleClass().addAll(StyleClass.HIDDEN_COLUMN_HEADER, StyleClass.HIDDEN_ROW_FOCUS);
+        accountTypeTable.getStylesheets().addAll(StyleClass.HIDE_HORIZONTAL_CSS, StyleClass.HIDE_VERTICAL_CSS);
         accountTypeTable.setItems(accountGroupList);
         accountTypeTable.fixedCellSizeProperty().bind(rowHeight);
         accountTypeTable.prefHeightProperty()
@@ -300,7 +302,8 @@ public class BudgetTableController implements MessageListener {
         accountTypeTable.prefWidthProperty().bind(accountTreeView.prefWidthProperty());
 
         accountGroupPeriodSummaryTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
-        accountGroupPeriodSummaryTable.getStylesheets().addAll(StyleClass.HIDE_HEADER_CSS, StyleClass.HIDE_HORIZONTAL_CSS, StyleClass.HIDE_VERTICAL_CSS, StyleClass.HIDE_TABLE_FOCUS);
+        accountGroupPeriodSummaryTable.getStyleClass().addAll(StyleClass.HIDDEN_COLUMN_HEADER, StyleClass.HIDDEN_ROW_FOCUS);
+        accountGroupPeriodSummaryTable.getStylesheets().addAll(StyleClass.HIDE_HORIZONTAL_CSS, StyleClass.HIDE_VERTICAL_CSS);
         accountGroupPeriodSummaryTable.setItems(accountGroupList);
         accountGroupPeriodSummaryTable.fixedCellSizeProperty().bind(rowHeight);
         accountGroupPeriodSummaryTable.prefHeightProperty()
@@ -868,7 +871,8 @@ public class BudgetTableController implements MessageListener {
         gridPane.getChildren().add(periodTable);
 
         periodTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
-        periodTable.getStylesheets().addAll(StyleClass.HIDE_HORIZONTAL_CSS, StyleClass.HIDE_VERTICAL_CSS, StyleClass.HIDE_TABLE_FOCUS);
+        periodTable.getStyleClass().addAll(StyleClass.HIDDEN_ROW_FOCUS);
+        periodTable.getStylesheets().addAll(StyleClass.HIDE_HORIZONTAL_CSS, StyleClass.HIDE_VERTICAL_CSS);
         periodTable.fixedCellSizeProperty().bind(rowHeight);
         periodTable.setSelectionModel(new NullTableViewSelectionModel<>(periodTable));
 
@@ -984,7 +988,9 @@ public class BudgetTableController implements MessageListener {
         gridPane.getChildren().add(periodSummaryTable);
 
         periodSummaryTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
-        periodSummaryTable.getStylesheets().addAll(StyleClass.HIDE_HORIZONTAL_CSS, StyleClass.HIDE_VERTICAL_CSS, StyleClass.HIDE_HEADER_CSS, StyleClass.HIDE_TABLE_FOCUS);
+        periodSummaryTable.getStyleClass().add(StyleClass.HIDDEN_COLUMN_HEADER);
+        periodSummaryTable.getStyleClass().addAll(StyleClass.HIDDEN_ROW_FOCUS);
+        periodSummaryTable.getStylesheets().addAll(StyleClass.HIDE_HORIZONTAL_CSS, StyleClass.HIDE_VERTICAL_CSS);
         periodSummaryTable.fixedCellSizeProperty().bind(rowHeight);
         periodSummaryTable.prefHeightProperty()
                 .bind(rowHeight.multiply(Bindings.size(accountGroupList)).add(BORDER_MARGIN));
@@ -1180,7 +1186,6 @@ public class BudgetTableController implements MessageListener {
 
             final HBox hBox = new HBox(new Label(group.toString()), new BudgetSparkLine(remaining));
             hBox.setAlignment(Pos.CENTER_LEFT);
-            hBox.getStylesheets().addAll(MainView.DEFAULT_CSS);
 
             sparkLinePane.getChildren().add(hBox);
         }

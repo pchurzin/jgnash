@@ -66,7 +66,8 @@ class JpaTrashDAO extends AbstractJpaDAO implements TrashDAO {
     JpaTrashDAO(final EntityManager entityManager, final boolean isRemote) {
         super(entityManager, isRemote);
 
-        entityTrashExecutor = Executors.newSingleThreadScheduledExecutor(new DefaultDaemonThreadFactory());
+        entityTrashExecutor = Executors.newSingleThreadScheduledExecutor(
+                new DefaultDaemonThreadFactory("JPA Trash Executor"));
 
         // run trash cleanup every 35 seconds 1 minute after startup
         entityTrashExecutor.scheduleWithFixedDelay(JpaTrashDAO.this::cleanupEntityTrash, INITIAL_DELAY, PERIOD,
@@ -128,6 +129,8 @@ class JpaTrashDAO extends AbstractJpaDAO implements TrashDAO {
 
                     em.getTransaction().commit();
 
+                    dirtyFlag.set(true);
+
                     return null;
                 } finally {
                     emLock.unlock();
@@ -156,6 +159,8 @@ class JpaTrashDAO extends AbstractJpaDAO implements TrashDAO {
 
                     em.getTransaction().commit();
 
+                    dirtyFlag.set(true);
+
                     logger.info("Removed TrashObject");
 
                     return null;
@@ -183,6 +188,8 @@ class JpaTrashDAO extends AbstractJpaDAO implements TrashDAO {
                     em.persist(new JpaTrashEntity(entity));
 
                     em.getTransaction().commit();
+
+                    dirtyFlag.set(true);
 
                     return null;
                 } finally {

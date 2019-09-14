@@ -81,10 +81,6 @@ import java.util.prefs.Preferences;
  * @author Craig Cavanaugh
  */
 public class MainView implements MessageListener {
-    /**
-     * Default style sheet.
-     */
-    public static final String DEFAULT_CSS = "jgnash/skin/default.css";
 
     private static final String TITLE;
 
@@ -94,7 +90,8 @@ public class MainView implements MessageListener {
 
     private final ResourceBundle resources = ResourceUtils.getBundle();
 
-    private final Executor backgroundExecutor = Executors.newSingleThreadExecutor(new DefaultDaemonThreadFactory());
+    private final Executor backgroundExecutor =
+            Executors.newSingleThreadExecutor(new DefaultDaemonThreadFactory("Main View Background Executor"));
 
     private final StatusBarLogHandler statusBarLogHandler = new StatusBarLogHandler();
 
@@ -166,8 +163,12 @@ public class MainView implements MessageListener {
 
         busyPane = new BusyPane();
 
-        final FXMLLoader fxmlLoader = new FXMLLoader(MenuBarController.class.getResource("MainMenuBar.fxml"), resources);
-        menuBar = fxmlLoader.load();
+        try {
+            final FXMLLoader fxmlLoader = new FXMLLoader(MenuBarController.class.getResource("MainMenuBar.fxml"), resources);
+            menuBar = fxmlLoader.load();
+        } catch (final Exception e) {
+            logger.log(Level.SEVERE, e.getLocalizedMessage(), e);
+        }
 
         final ToolBar mainToolBar = FXMLLoader.load(MainToolBarController.class.getResource("MainToolBar.fxml"), resources);
 
@@ -188,7 +189,7 @@ public class MainView implements MessageListener {
         stackPane.getChildren().addAll(borderPane, busyPane);
 
         final Scene scene = new Scene(stackPane, 640, 480);
-        scene.getStylesheets().add(DEFAULT_CSS);
+        ThemeManager.applyStyleSheets(scene);
 
         scene.getRoot().styleProperty().bind(ThemeManager.styleProperty());
 

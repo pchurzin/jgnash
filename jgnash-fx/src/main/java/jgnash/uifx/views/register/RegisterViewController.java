@@ -87,7 +87,8 @@ public class RegisterViewController {
     @FXML
     private ResourceBundle resources;
 
-    private final static ExecutorService executorService = Executors.newSingleThreadExecutor(new DefaultDaemonThreadFactory());
+    private final static ExecutorService executorService =
+            Executors.newSingleThreadExecutor(new DefaultDaemonThreadFactory("Register View Controller Executor"));
 
     private final Preferences preferences = Preferences.userNodeForPackage(RegisterViewController.class);
 
@@ -236,7 +237,7 @@ public class RegisterViewController {
 
     @FXML
     private void handleAccountReport() {
-        ReportActions.displayAccountRegisterReport2(registerPaneController.accountProperty().get());
+        ReportActions.displayAccountRegisterReport(registerPaneController.accountProperty().get());
     }
 
     @FXML

@@ -28,6 +28,12 @@ public class StyleClass {
         // utility class
     }
 
+    public static final String HIDDEN_COLUMN_HEADER = "hidden-column-header";
+
+    public static final String POP_OVER_BUTTON = "pop-over-button";
+
+    public static final String HIDDEN_ROW_FOCUS = "hidden-row-focus";
+
     public static final String LIST_TITLE_STYLE = "list-title";
 
     public static final String LIST_BUTTON_STYLE = "list-button";
@@ -56,12 +62,8 @@ public class StyleClass {
 
     public static final String ITALIC_NEGATIVE_CELL_ID = "italic-negative-label";
 
-    public static final String HIDE_TABLE_FOCUS = "jgnash/skin/tableHideRowFocus.css";
-
     public static final String HIDE_HORIZONTAL_CSS = "jgnash/skin/tableHideHorizontalScrollBar.css";
 
     public static final String HIDE_VERTICAL_CSS = "jgnash/skin/tableHideVerticalScrollBar.css";
-
-    public static final String HIDE_HEADER_CSS = "jgnash/skin/tableHideColumnHeader.css";
 
 }

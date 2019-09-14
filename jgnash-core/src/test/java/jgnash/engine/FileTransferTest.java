@@ -17,14 +17,6 @@
  */
 package jgnash.engine;
 
-import io.netty.util.ResourceLeakDetector;
-import jgnash.engine.jpa.JpaH2DataStore;
-import jgnash.engine.jpa.JpaHsqlDataStore;
-import jgnash.engine.jpa.JpaNetworkServer;
-import jgnash.engine.jpa.SqlUtils;
-import jgnash.util.FileUtils;
-import org.junit.jupiter.api.Test;
-
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.nio.charset.Charset;
@@ -37,9 +29,23 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import static org.awaitility.Awaitility.await;
-import static org.junit.jupiter.api.Assertions.*;
+import jgnash.engine.jpa.JpaH2DataStore;
+import jgnash.engine.jpa.JpaHsqlDataStore;
+import jgnash.engine.jpa.JpaNetworkServer;
+import jgnash.engine.jpa.SqlUtils;
+import jgnash.util.FileUtils;
 
+import org.junit.jupiter.api.Test;
+
+import io.netty.util.ResourceLeakDetector;
+
+import static org.awaitility.Awaitility.await;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * File transfer test.
@@ -61,20 +67,13 @@ class FileTransferTest {
         String testFile = null;
 
         try {
-            final Path temp = Files.createTempFile("jpa-test-e", JpaH2DataStore.FILE_EXT);
+            final Path temp = Files.createTempFile("jpa-test-e", JpaH2DataStore.H2_FILE_EXT);
             Files.delete(temp);
 
+            temp.toFile().deleteOnExit();
             testFile = temp.toString();
 
             assertNotNull(testFile);
-
-            Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-                try {
-                    Files.delete(temp);
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }));
         } catch (final IOException e) {
             Logger.getLogger(FileTransferTest.class.getName()).log(Level.SEVERE, e.getLocalizedMessage(), e);
             fail();
@@ -83,6 +82,9 @@ class FileTransferTest {
         // Start an engine and close so we have a populated file
         EngineFactory.bootLocalEngine(testFile, EngineFactory.DEFAULT, EngineFactory.EMPTY_PASSWORD,
                 DataStoreType.H2_DATABASE);
+
+        EngineFactory.getEngine(EngineFactory.DEFAULT).setCreateBackups(false); // disable for test
+
         EngineFactory.closeEngine(EngineFactory.DEFAULT);
 
         // Change the password
@@ -135,7 +137,7 @@ class FileTransferTest {
             tempAttachment.toFile().deleteOnExit();
 
             //write it
-            try (BufferedWriter bw = Files.newBufferedWriter(tempAttachment, Charset.defaultCharset())) {
+            try (final BufferedWriter bw = Files.newBufferedWriter(tempAttachment, Charset.defaultCharset())) {
                 bw.write("This is the temporary file content 2.");
             }
 
@@ -169,17 +171,11 @@ class FileTransferTest {
             Path temp = Files.createTempFile("jpa-test", JpaHsqlDataStore.FILE_EXT);
             Files.delete(temp);
 
+            temp.toFile().deleteOnExit();
+
             testFile = temp.toString();
 
             assertNotNull(testFile);
-
-            Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-                try {
-                    Files.delete(temp);
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }));
         } catch (final IOException e) {
             Logger.getLogger(FileTransferTest.class.getName()).log(Level.SEVERE, e.getLocalizedMessage(), e);
             fail();
@@ -188,6 +184,8 @@ class FileTransferTest {
         // Start an engine and close so we have a populated file
         EngineFactory.bootLocalEngine(testFile, EngineFactory.DEFAULT, EngineFactory.EMPTY_PASSWORD,
                 DataStoreType.HSQL_DATABASE);
+
+        EngineFactory.getEngine(EngineFactory.DEFAULT).setCreateBackups(false); // disable for test
 
         EngineFactory.closeEngine(EngineFactory.DEFAULT);
 
