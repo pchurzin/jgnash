@@ -10,8 +10,8 @@ dependencies {
 }
 
 javafx {
-  modules = [ "javafx.controls"]
   version = javaFXVersion
+  modules = [ "javafx.controls"]
 }
 
 jar {

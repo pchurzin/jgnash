@@ -18,6 +18,9 @@
 package jgnash.uifx.report;
 
 import java.io.IOException;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.ResourceBundle;
 import java.util.function.Consumer;
 import java.util.prefs.Preferences;
@@ -29,11 +32,17 @@ import javafx.scene.control.CheckBox;
 
 import jgnash.engine.AccountType;
 import jgnash.engine.EngineFactory;
+import jgnash.engine.InvestmentPerformanceSummary;
 import jgnash.report.pdf.Report;
 import jgnash.report.table.AbstractReportTableModel;
+import jgnash.uifx.Options;
 import jgnash.uifx.control.AccountComboBox;
+import jgnash.uifx.control.CheckComboBox;
+import jgnash.uifx.control.DatePickerEx;
 import jgnash.uifx.report.pdf.ReportController;
 import jgnash.uifx.util.JavaFXUtils;
+
+import org.apache.commons.lang3.tuple.Pair;
 
 /**
  * Portfolio report controller.
@@ -45,6 +54,17 @@ public class PortfolioReportController implements ReportController {
     private static final String RECURSIVE = "recursive";
 
     private static final String VERBOSE = "verbose";
+
+    private static final String REPORT_COLUMNS = "reportColumns";
+
+    @FXML
+    private CheckComboBox<String> columnComboBox;
+
+    @FXML
+    private DatePickerEx startDatePicker;
+
+    @FXML
+    private DatePickerEx endDatePicker;
 
     @FXML
     private AccountComboBox accountComboBox;
@@ -65,15 +85,50 @@ public class PortfolioReportController implements ReportController {
     @SuppressWarnings("FieldCanBeLocal")
     private ChangeListener<Object> changeListener;
 
+    @SuppressWarnings("FieldCanBeLocal")
+    private ChangeListener<Boolean> comboChangeListener;
+
+    @SuppressWarnings("FieldCanBeLocal")
+    private ChangeListener<Object> accountChangeListener;
+
     @FXML
     private void initialize() {
+        final Preferences preferences = getPreferences();
+
+        initColumnCombo();
+
+        comboChangeListener = (observable, oldValue, newValue) -> {
+            final List<String> columns = columnComboBox.getCheckedItems();
+
+            if (columns.size() > 0) {
+                preferences.put(REPORT_COLUMNS, String.join(",", columns));
+                System.out.println(String.join(",", columns));
+            } else {
+                preferences.put(REPORT_COLUMNS, "");
+            }
+
+            handleReportRefresh();
+        };
+
+        // list to changes and update preferences and the report
+        columnComboBox.addListener(new WeakChangeListener<>(comboChangeListener));
+
         // Only show visible investment accounts
         accountComboBox.setPredicate(account -> account.instanceOf(AccountType.INVEST) && account.isVisible());
 
-        final Preferences preferences = getPreferences();
-
         subAccountCheckBox.setSelected(preferences.getBoolean(RECURSIVE, true));
         longNameCheckBox.setSelected(preferences.getBoolean(VERBOSE, false));
+
+        // set date range
+        updateDateRanges();
+
+        startDatePicker.preserveDateProperty().bind(Options.restoreReportDateProperty());
+        startDatePicker.preferencesProperty().setValue(preferences);
+        startDatePicker.preferenceKeyProperty().setValue(START_DATE_KEY);
+
+        endDatePicker.preserveDateProperty().bind(Options.restoreReportDateProperty());
+        endDatePicker.preferencesProperty().setValue(preferences);
+        endDatePicker.preferenceKeyProperty().setValue(END_DATE_KEY);
 
         changeListener = (observable, oldValue, newValue) -> {
             if (EngineFactory.getEngine(EngineFactory.DEFAULT) != null) {   // could be null if GC is slow
@@ -81,12 +136,57 @@ public class PortfolioReportController implements ReportController {
             }
         };
 
+        // update data ranges prior to refresh
+        accountChangeListener = (observable, oldValue, newValue) -> {
+            updateDateRanges();
+            changeListener.changed(observable, oldValue, newValue);
+        };
+
         subAccountCheckBox.selectedProperty().addListener(new WeakChangeListener<>(changeListener));
         longNameCheckBox.selectedProperty().addListener(new WeakChangeListener<>(changeListener));
-        accountComboBox.valueProperty().addListener(new WeakChangeListener<>(changeListener));
+        accountComboBox.valueProperty().addListener(new WeakChangeListener<>(accountChangeListener));
+        startDatePicker.valueProperty().addListener(new WeakChangeListener<>(changeListener));
+        endDatePicker.valueProperty().addListener(new WeakChangeListener<>(changeListener));
 
         // boot the report generation
         JavaFXUtils.runLater(this::refreshReport);
+    }
+
+    private void initColumnCombo() {
+        final List<String> columnNames = getAvailColumns();
+
+        for (final String columnName : columnNames) {
+            columnComboBox.add(columnName, false);
+        }
+
+        final String availColumns = getPreferences().get(REPORT_COLUMNS, String.join(",", columnNames));
+
+        if (availColumns != null && !availColumns.isBlank()) {
+            String[] columns = availColumns.split(",");
+
+            for (String column : columns) {
+                columnComboBox.setChecked(column, true);
+            }
+        }
+    }
+
+    @FXML
+    private void handleResetAll() {
+        columnComboBox.setAllChecked();
+
+        JavaFXUtils.runLater(this::updateDateRanges);
+    }
+
+    private void updateDateRanges() {
+        if (accountComboBox.getValue() != null) {
+
+            final Pair<LocalDate, LocalDate> dateRange
+                    = InvestmentPerformanceSummary.getTransactionDateRange(accountComboBox.getValue(),
+                    subAccountCheckBox.isSelected());
+
+            startDatePicker.setValue(dateRange.getLeft());
+            endDatePicker.setValue(dateRange.getRight());
+        }
     }
 
     @Override
@@ -112,7 +212,8 @@ public class PortfolioReportController implements ReportController {
         preferences.putBoolean(RECURSIVE, subAccountCheckBox.isSelected());
         preferences.putBoolean(VERBOSE, longNameCheckBox.isSelected());
 
-        if (!accountComboBox.isDisabled()) {   // make sure an account is available
+        // make sure an account is available and the value is not null due to slow GC
+        if (!accountComboBox.isDisabled() && accountComboBox.getValue() != null) {
             addTable();
 
             // send notification the report has been updated
@@ -123,7 +224,7 @@ public class PortfolioReportController implements ReportController {
     }
 
     private void addTable() {
-        AbstractReportTableModel model = createReportModel();
+        final AbstractReportTableModel model = createReportModel();
 
         report.clearReport();
 
@@ -137,7 +238,21 @@ public class PortfolioReportController implements ReportController {
 
     @Override
     public AbstractReportTableModel createReportModel() {
-        return PortfolioReport.createReportModel(accountComboBox.getValue(), subAccountCheckBox.isSelected(),
-                longNameCheckBox.isSelected());
+        final List<String> availableColumns = columnComboBox.getCheckedItems();
+
+        return PortfolioReport.createReportModel(accountComboBox.getValue(), startDatePicker.getValue(),
+                endDatePicker.getValue(), subAccountCheckBox.isSelected(), longNameCheckBox.isSelected(),
+                availableColumns::contains);
     }
+
+    private List<String> getAvailColumns() {
+        final List<String> availColumns = new ArrayList<>();
+
+        for (int i = 1; i < PortfolioReport.getColumnCount(); i++) {
+            availColumns.add(PortfolioReport.getColumnName(i));
+        }
+
+        return availColumns;
+    }
+
 }

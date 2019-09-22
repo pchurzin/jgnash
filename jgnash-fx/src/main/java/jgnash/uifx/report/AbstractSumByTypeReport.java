@@ -77,7 +77,7 @@ public abstract class AbstractSumByTypeReport extends Report {
 
     private boolean addPercentileColumn = false;
 
-    private String subTitle = "subtitle";
+    private String subTitle = "";
 
     private String title = "";
 
@@ -215,11 +215,6 @@ public abstract class AbstractSumByTypeReport extends Report {
         model.addAccounts(accounts);
 
         return model;
-    }
-
-    @Override
-    public String getSubTitle() {
-        return subTitle;
     }
 
     private void updateResolution(final LocalDate startDate, final LocalDate endDate) {
